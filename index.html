@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>塩水噴霧試験機 管理システム</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#080c14;--bg2:#0f1a2e;--bg3:#162035;--border:#1a3355;
+  --accent:#00d4ff;--accent2:#0055ff;--ok:#00e676;--warn:#ff9800;
+  --danger:#ff3d57;--text:#ddeeff;--text2:#6a8faf;--reserve:#a855f7;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;}
+
+/* ══ 掲示板モード（全画面デフォルト） ══ */
+#board{position:fixed;inset:0;display:flex;flex-direction:column;z-index:1;}
+
+/* ヘッダーバー */
+.board-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:rgba(8,12,20,.97);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.board-logo{display:flex;align-items:center;gap:10px;}
+.board-logo-icon{width:32px;height:32px;border:2px solid var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;animation:pb 3s infinite;}
+@keyframes pb{0%,100%{box-shadow:0 0 10px rgba(0,212,255,.3)}50%{box-shadow:0 0 20px rgba(0,212,255,.6)}}
+.board-logo h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;color:var(--accent);}
+.board-logo p{font-size:9px;color:var(--text2);}
+.board-header-right{display:flex;align-items:center;gap:12px;}
+.hstat{text-align:right;}
+.hstat-val{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;color:var(--accent);}
+.hstat-label{font-size:9px;color:var(--text2);letter-spacing:1px;}
+#conn-status{font-size:10px;color:var(--text2);padding:3px 8px;border:1px solid var(--border);border-radius:4px;}
+.btn-operate{padding:6px 14px;background:rgba(0,85,255,.2);border:1px solid var(--accent2);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;font-family:'Noto Sans JP',sans-serif;transition:all .2s;}
+.btn-operate:hover{background:rgba(0,85,255,.4);}
+
+/* ══ 掲示板コンテンツ ══ */
+.board-content{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:12px;}
+
+/* サマリーバー */
+.board-summary{
+  display:grid;grid-template-columns:auto 1px 1fr;
+  gap:0;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;flex-shrink:0;
+}
+.summary-free{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:12px 28px;
+}
+.summary-free .big-num{font-family:'Rajdhani',sans-serif;font-size:64px;font-weight:700;line-height:1;color:var(--ok);text-shadow:0 0 30px rgba(0,230,118,.4);}
+.summary-free .big-label{font-size:11px;color:var(--text2);letter-spacing:1px;margin-top:2px;}
+.summary-divider{background:var(--border);}
+.summary-future{padding:12px 20px;display:flex;flex-direction:column;justify-content:center;gap:6px;}
+.summary-future-title{font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:2px;}
+.future-row{display:flex;align-items:center;gap:8px;font-size:11px;}
+.future-label{color:var(--text2);min-width:110px;font-size:10px;}
+.future-bar-wrap{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.future-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--ok));}
+.future-count{font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--ok);min-width:60px;text-align:right;}
+
+/* 試験機カードグリッド */
+.board-machines{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;flex:1;}
+.machine-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:14px;display:flex;flex-direction:column;gap:8px;
+  position:relative;overflow:hidden;transition:border-color .2s;
+}
+.machine-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));}
+.machine-card:hover{border-color:var(--accent);}
+.mc-name{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;}
+.mc-free-row{display:flex;align-items:flex-end;gap:6px;}
+.mc-free-num{font-family:'Rajdhani',sans-serif;font-size:44px;font-weight:700;line-height:1;color:var(--ok);}
+.mc-free-num.low{color:var(--warn);}
+.mc-free-num.empty{color:var(--danger);}
+.mc-free-label{font-size:11px;color:var(--text2);margin-bottom:6px;}
+.mc-bar-wrap{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.mc-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--ok));transition:width .5s;}
+.mc-bar.low{background:linear-gradient(90deg,var(--warn),#ffb74d);}
+.mc-bar.full{background:var(--danger);}
+.mc-stats{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);}
+
+/* ミニグリッド */
+.mc-mini-grid{display:inline-grid;gap:2px;margin-top:4px;}
+.ms{width:13px;height:13px;border-radius:2px;}
+.ms.e{background:#0c1828;border:1px solid #1a3355;}
+.ms.u{border:none;}
+.ms.r{border:1px dashed rgba(168,85,247,.5);background:rgba(168,85,247,.15);}
+.ms.b{background:repeating-linear-gradient(45deg,#0c0e14 0,#0c0e14 2px,#111520 2px,#111520 4px);}
+
+/* まもなく終了 */
+.upcoming-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;flex-shrink:0;}
+.upcoming-wrap h3{font-size:10px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;}
+.upcoming-items{display:flex;flex-wrap:wrap;gap:6px;}
+.upcoming-chip{padding:4px 10px;border-radius:20px;font-size:10px;background:var(--bg3);border:1px solid var(--border);}
+.upcoming-chip.warn{border-color:var(--warn);color:var(--warn);}
+.upcoming-chip.danger{border-color:var(--danger);color:var(--danger);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ══ 操作パネル（フローティング） ══ */
+#fab{
+  position:fixed;bottom:20px;right:20px;z-index:100;
+}
+.fab-btn{
+  width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border:none;color:#fff;font-size:22px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,212,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .3s;
+}
+.fab-btn:hover{transform:scale(1.1);}
+
+/* 操作ドロワー */
+#drawer{
+  position:fixed;inset:0;z-index:200;display:none;
+}
+#drawer.open{display:block;}
+.drawer-overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);}
+.drawer-panel{
+  position:absolute;right:0;top:0;bottom:0;width:420px;
+  background:var(--bg);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.drawer-header{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg2);flex-shrink:0;
+}
+.drawer-header h2{font-family:'Rajdhani',sans-serif;font-size:15px;letter-spacing:1px;color:var(--accent);}
+.drawer-close{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;}
+.drawer-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.dtab{flex:1;padding:10px;background:transparent;border:none;color:var(--text2);font-size:12px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.dtab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.dtab.active-r{color:var(--reserve);border-bottom-color:var(--reserve);}
+.drawer-body{flex:1;overflow-y:auto;padding:16px;}
+
+/* フォーム */
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:10px;color:var(--text2);margin-bottom:4px;letter-spacing:.5px;}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:5px;font-size:12px;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .2s;}
+.fg input:focus,.fg select:focus{border-color:var(--accent);}
+.btn-p{width:100%;padding:9px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:6px;color:#fff;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:6px;}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,212,255,.3);}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-r{width:100%;padding:9px;background:linear-gradient(135deg,var(--reserve2,#7c3aed),var(--reserve));border:none;border-radius:6px;color:#fff;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:6px;}
+.btn-r:hover{transform:translateY(-1px);}
+.btn-r:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.hint-box{display:none;padding:8px 10px;border-radius:5px;font-size:11px;text-align:center;margin-bottom:6px;}
+.hint-box.place{background:rgba(0,212,255,.07);border:1px dashed var(--accent);color:var(--accent);}
+.hint-box.reserve{background:rgba(168,85,247,.07);border:1px dashed var(--reserve);color:var(--reserve);}
+.btn-cancel{width:100%;padding:6px;background:transparent;border:1px solid var(--danger);border-radius:5px;color:var(--danger);font-size:11px;cursor:pointer;display:none;}
+.btn-cancel.show{display:block;}
+
+/* 試験体リスト */
+.spec-list{display:flex;flex-direction:column;gap:5px;}
+.spec-item{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:5px;border-left:3px solid var(--accent2);font-size:11px;}
+.spec-item.warn{border-left-color:var(--warn);}
+.spec-item.danger{border-left-color:var(--danger);}
+.spec-item.is-r{border-left-color:var(--reserve);border-style:dashed;}
+.spec-name{font-weight:500;}
+.spec-meta{color:var(--text2);font-size:10px;margin-top:1px;}
+.btn-del{background:none;border:none;color:var(--text2);cursor:pointer;padding:2px 5px;font-size:12px;border-radius:3px;}
+.btn-del:hover{color:var(--danger);background:rgba(255,61,87,.1);}
+
+/* 試験機管理 */
+.machine-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.machine-list-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg3);border-radius:6px;font-size:11px;}
+.machine-list-item .mli-name{font-weight:500;font-family:'Rajdhani',sans-serif;font-size:13px;}
+.machine-list-item .mli-meta{color:var(--text2);font-size:10px;}
+.machine-list-item .mli-del{background:none;border:none;color:var(--text2);cursor:pointer;padding:3px 7px;font-size:12px;border-radius:3px;}
+.machine-list-item .mli-del:hover{color:var(--danger);background:rgba(255,61,87,.1);}
+.machine-list-item .mli-lock{color:var(--ok);font-size:10px;padding:2px 6px;border:1px solid var(--ok);border-radius:3px;}
+
+/* 槽ビュー */
+.chamber-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;}
+.chamber-title{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--accent);letter-spacing:1px;margin-bottom:8px;}
+.grid-outer{background:#050b14;border:1px solid var(--border);border-radius:6px;padding:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.grid-inner{display:inline-grid;gap:2px;user-select:none;}
+.slot{width:48px;height:48px;border-radius:3px;border:1px solid #1a3355;background:#0c1828;cursor:pointer;transition:all .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;text-align:center;padding:2px;font-size:7px;}
+.slot-coord{position:absolute;top:1px;left:2px;font-size:6px;color:rgba(100,140,180,.3);font-family:'Rajdhani',sans-serif;line-height:1;}
+.slot-label{font-size:7px;font-weight:600;line-height:1.2;color:#fff;word-break:break-all;}
+.slot-owner{font-size:6px;opacity:.8;margin-top:1px;color:rgba(255,255,255,.7);}
+.slot-days{font-family:'Rajdhani',sans-serif;font-size:8px;opacity:.85;}
+.slot.empty:hover{border-color:var(--accent);background:rgba(0,212,255,.1);}
+.slot.placing{border-color:var(--accent)!important;background:rgba(0,212,255,.1)!important;cursor:crosshair;animation:pp .9s infinite;}
+@keyframes pp{0%,100%{opacity:1}50%{opacity:.5}}
+.slot.drag-hover{border-color:var(--accent)!important;background:rgba(0,212,255,.2)!important;transform:scale(.94);}
+.slot.drag-invalid{border-color:var(--danger)!important;background:rgba(255,61,87,.15)!important;}
+.slot.occupied,.slot.reserved{cursor:default;}
+.slot.occupied:hover,.slot.reserved:hover{filter:brightness(1.2);z-index:5;}
+.slot.s-warn{border-color:var(--warn)!important;}
+.slot.s-danger{border-color:var(--danger)!important;animation:blink 1.5s infinite;}
+.slot.blocked{background:repeating-linear-gradient(45deg,#0d0f14 0,#0d0f14 3px,#111520 3px,#111520 6px);border-color:#141820;cursor:not-allowed;}
+.slot.blocked::after{content:'✕';font-size:12px;color:rgba(255,61,87,.2);}
+
+/* バックアップ */
+.backup-section{background:var(--bg3);border-radius:6px;padding:12px;margin-top:10px;}
+.backup-section h4{font-size:11px;color:var(--text2);margin-bottom:8px;letter-spacing:.5px;}
+.btn-backup{width:100%;padding:7px;background:rgba(0,230,118,.1);border:1px solid var(--ok);border-radius:5px;color:var(--ok);font-size:11px;cursor:pointer;margin-bottom:6px;transition:all .2s;}
+.btn-backup:hover{background:rgba(0,230,118,.2);}
+
+/* 凡例 */
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text2);}
+.legend-dot{width:10px;height:10px;border-radius:2px;}
+
+/* モーダル */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;padding:14px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:22px;width:100%;max-width:340px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.modal h2{font-family:'Rajdhani',sans-serif;color:var(--accent);font-size:15px;letter-spacing:1px;margin-bottom:14px;}
+.modal-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;}
+.m-calc{font-size:10px;color:var(--accent);margin-bottom:10px;padding:6px;background:var(--bg3);border-radius:4px;}
+
+/* トースト */
+#sync-toast{position:fixed;bottom:80px;right:20px;background:rgba(0,230,118,.15);border:1px solid var(--ok);border-radius:8px;padding:7px 14px;font-size:11px;color:var(--ok);z-index:9999;opacity:0;transition:opacity .4s;pointer-events:none;}
+
+/* ツールチップ */
+.tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 11px;font-size:10px;pointer-events:none;z-index:999;display:none;min-width:150px;box-shadow:0 4px 15px rgba(0,0,0,.4);}
+.tt-name{font-weight:600;color:var(--accent);margin-bottom:3px;font-size:11px;}
+.tt-row{color:var(--text2);margin-top:2px;}
+
+/* スクロール */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* モバイル */
+@media(max-width:600px){
+  .drawer-panel{width:100%;}
+  .board-machines{grid-template-columns:1fr;}
+  .mc-free-num{font-size:34px;}
+  .summary-free .big-num{font-size:48px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ 掲示板モード（全画面） ══ -->
+<div id="board">
+  <div class="board-header">
+    <div class="board-logo">
+      <div class="board-logo-icon">🧪</div>
+      <div>
+        <h1>SALT SPRAY TEST MONITOR</h1>
+        <p>塩水噴霧試験機 管理システム</p>
+      </div>
+    </div>
+    <div class="board-header-right">
+      <span id="conn-status">⏳ 接続中...</span>
+      <div class="hstat"><div class="hstat-val" id="h-machines">0</div><div class="hstat-label">試験機台数</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-free" style="color:var(--ok)">0</div><div class="hstat-label">全体空きスロット</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-util">0%</div><div class="hstat-label">全体稼働率</div></div>
+      <button class="btn-operate" onclick="openDrawer()">⚙ 操作・設定</button>
+    </div>
+  </div>
+
+  <div class="board-content">
+    <!-- サマリー -->
+    <div class="board-summary">
+      <div class="summary-free">
+        <div class="big-num" id="board-free-num">0</div>
+        <div class="big-label">全体 空きスロット</div>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-future">
+        <div class="summary-future-title">📅 将来の空き予測</div>
+        <div id="future-rows"></div>
+      </div>
+    </div>
+
+    <!-- まもなく終了 -->
+    <div class="upcoming-wrap" id="upcoming-wrap" style="display:none">
+      <h3>⏰ まもなく終了（7日以内）</h3>
+      <div class="upcoming-items" id="upcoming-items"></div>
+    </div>
+
+    <!-- 試験機カード -->
+    <div class="board-machines" id="board-machines">
+      <div style="color:var(--text2);font-size:13px;padding:20px;grid-column:1/-1;text-align:center;">試験機がまだ登録されていません</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FAB ══ -->
+<div id="fab">
+  <button class="fab-btn" onclick="openDrawer()" title="操作パネルを開く">⚙</button>
+</div>
+
+<!-- ══ 操作ドロワー ══ -->
+<div id="drawer">
+  <div class="drawer-overlay" onclick="closeDrawer()"></div>
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <h2>操作パネル</h2>
+      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="drawer-tabs">
+      <button class="dtab active" id="dt-place" onclick="switchDTab('place')">📍 配置</button>
+      <button class="dtab" id="dt-reserve" onclick="switchDTab('reserve')">📅 予約</button>
+      <button class="dtab" id="dt-machines" onclick="switchDTab('machines')">🏭 試験機</button>
+      <button class="dtab" id="dt-backup" onclick="switchDTab('backup')">💾 バックアップ</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <!-- 配置タブ -->
+      <div id="tab-place">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--text2);">試験機を選択</label>
+          <select id="sel-machine" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 9px;border-radius:5px;font-size:12px;outline:none;margin-top:4px;" onchange="selectMachine(this.value)">
+            <option value="">-- 試験機を選択 --</option>
+          </select>
+        </div>
+        <div class="fg"><label>試験体名 / ID</label><input type="text" id="input-name" placeholder="例：SUS304-A1"></div>
+        <div class="fg"><label>担当者名</label><input type="text" id="input-owner" placeholder="例：山田 太郎"></div>
+        <div class="fg"><label>試験開始日</label><input type="date" id="input-start"></div>
+        <div class="fg"><label>終了予定日</label><input type="date" id="input-end"></div>
+        <button class="btn-p" id="btn-place" onclick="startPlacing(false)">配置するスロットを選択 →</button>
+        <div class="hint-box place" id="hint-place">🎯 スロットをドラッグして範囲を選択</div>
+        <button class="btn-cancel" id="cancel-place" onclick="cancelPlacing()">キャンセル</button>
+
+        <!-- 槽グリッド -->
+        <div id="chamber-area"></div>
+
+        <!-- 試験体一覧 -->
+        <div style="margin-top:14px;">
+          <div style="font-size:10px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;">📋 試験体一覧</div>
+          <div class="spec-list" id="spec-list"><div style="font-size:11px;color:var(--text2);">なし</div></div>
+        </div>
+      </div>
+
+      <!-- 予約タブ -->
+      <div id="tab-reserve" style="display:none">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--text2);">試験機を選択</label>
+          <select id="sel-machine-r" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 9px;border-radius:5px;font-size:12px;outline:none;margin-top:4px;" onchange="selectMachine(this.value)">
+            <option value="">-- 試験機を選択 --</option>
+          </select>
+        </div>
+        <div class="fg"><label>予約名 / 試験体名</label><input type="text" id="res-name" placeholder="例：次期試験A"></div>
+        <div class="fg"><label>担当者名</label><input type="text" id="res-owner" placeholder="例：鈴木 花子"></div>
+        <div class="fg"><label>予約開始日</label><input type="date" id="res-start"></div>
+        <div class="fg"><label>予約終了日</label><input type="date" id="res-end"></div>
+        <button class="btn-r" id="btn-reserve" onclick="startPlacing(true)">予約スロットを選択 →</button>
+        <div class="hint-box reserve" id="hint-reserve">📅 スロットをドラッグして範囲を選択</div>
+        <button class="btn-cancel" id="cancel-reserve" onclick="cancelPlacing()">キャンセル</button>
+        <div id="chamber-area-r"></div>
+      </div>
+
+      <!-- 試験機管理タブ -->
+      <div id="tab-machines" style="display:none">
+        <div class="machine-list" id="machine-list"></div>
+        <button class="btn-p" onclick="openAddMachine()">＋ 試験機を追加</button>
+      </div>
+
+      <!-- バックアップタブ -->
+      <div id="tab-backup" style="display:none">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
+          試験機データはSupabaseに自動保存されています。<br>
+          追加でローカルバックアップを取ることができます。
+        </div>
+        <div class="backup-section">
+          <h4>📥 バックアップをダウンロード</h4>
+          <button class="btn-backup" onclick="downloadBackup()">JSONファイルをダウンロード</button>
+          <div style="font-size:10px;color:var(--text2);">すべてのデータをJSONで保存します</div>
+        </div>
+        <div class="backup-section" style="margin-top:10px;">
+          <h4>📤 バックアップから復元</h4>
+          <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+          <button class="btn-backup" onclick="document.getElementById('restore-file').click()">JSONファイルから復元</button>
+          <div style="font-size:10px;color:var(--warn);margin-top:4px;">⚠️ 現在のデータに上書きされます</div>
+        </div>
+        <div id="backup-msg" style="display:none;margin-top:8px;font-size:11px;color:var(--ok);text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 試験機追加モーダル -->
+<div class="modal-overlay" id="machine-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('machine-modal').classList.remove('open')">✕</button>
+    <h2>試験機を追加</h2>
+    <div class="fg"><label>試験機名称</label><input type="text" id="m-name" placeholder="例：SST-01"></div>
+    <div class="fg"><label>列数（横方向）</label><input type="number" id="m-cols" value="14" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>行数（奥行方向）</label><input type="number" id="m-rows" value="6" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可列 開始</label><input type="number" id="m-bcol-start" value="6" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可列 終了</label><input type="number" id="m-bcol-end" value="9" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可行 開始</label><input type="number" id="m-brow-start" value="3" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可行 終了</label><input type="number" id="m-brow-end" value="4" min="1" oninput="updateCalc()"></div>
+    <div class="m-calc" id="m-calc"></div>
+    <button class="btn-p" onclick="addMachine()">追加する</button>
+  </div>
+</div>
+
+<div id="sync-toast">🔄 同期しました</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-row" id="tt-owner"></div>
+  <div class="tt-row" id="tt-pos"></div>
+  <div class="tt-row" id="tt-start"></div>
+  <div class="tt-row" id="tt-end"></div>
+  <div class="tt-row" id="tt-remain"></div>
+</div>
+
+<script>
+// ══ 定数 ══
+const SUPABASE_URL='https://relijzngeyvlgbjdnfhi.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlbGlqem5nZXl2bGdiamRuZmhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1ODYyOTYsImV4cCI6MjA5MDE2MjI5Nn0.39QYAmkR3HQlyG6dC1nd8mKYQlmEDw-MoT4uV3D3nng';
+const SB_HEADERS={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
+
+// 担当者カラーパレット（20色）
+const OWNER_PALETTE=[
+  ['rgba(0,90,210,.55)','rgba(0,190,255,.85)'],    // 青
+  ['rgba(0,155,65,.55)','rgba(0,230,118,.85)'],    // 緑
+  ['rgba(180,60,20,.55)','rgba(255,140,60,.85)'],  // オレンジ
+  ['rgba(140,20,160,.55)','rgba(210,100,230,.85)'],// 紫
+  ['rgba(160,20,40,.55)','rgba(255,80,100,.85)'],  // 赤
+  ['rgba(0,120,120,.55)','rgba(0,210,210,.85)'],   // シアン
+  ['rgba(150,120,0,.55)','rgba(230,200,0,.85)'],   // 黄
+  ['rgba(20,60,180,.55)','rgba(100,140,255,.85)'], // インディゴ
+  ['rgba(160,40,100,.55)','rgba(240,100,160,.85)'],// ピンク
+  ['rgba(60,130,0,.55)','rgba(120,210,0,.85)'],    // ライム
+  ['rgba(180,100,0,.55)','rgba(255,180,50,.85)'],  // アンバー
+  ['rgba(0,80,160,.55)','rgba(60,160,255,.85)'],   // ライトブルー
+  ['rgba(100,0,100,.55)','rgba(200,80,200,.85)'],  // マゼンタ
+  ['rgba(0,100,80,.55)','rgba(0,200,160,.85)'],    // エメラルド
+  ['rgba(120,80,0,.55)','rgba(220,160,80,.85)'],   // ブラウン
+  ['rgba(0,60,120,.55)','rgba(40,140,220,.85)'],   // ネイビー
+  ['rgba(80,0,160,.55)','rgba(160,80,255,.85)'],   // バイオレット
+  ['rgba(160,80,40,.55)','rgba(255,160,100,.85)'], // サーモン
+  ['rgba(40,120,80,.55)','rgba(80,220,140,.85)'],  // ミント
+  ['rgba(100,40,0,.55)','rgba(200,100,60,.85)'],   // テラコッタ
+];
+const RESERVE_BG='rgba(130,50,220,.35)';
+const RESERVE_BC='rgba(168,85,247,.8)';
+
+const ownerColorMap={};let ownerColorIdx=0;
+function getOwnerColor(owner){
+  const key=(owner||'').trim()||'未設定';
+  if(!(key in ownerColorMap)){ownerColorMap[key]=ownerColorIdx%OWNER_PALETTE.length;ownerColorIdx++;}
+  return OWNER_PALETTE[ownerColorMap[key]];
+}
+function activeColor(days,owner){
+  if(days<0)return['rgba(255,61,87,.45)','rgba(255,100,100,.85)'];
+  if(days<=3)return['rgba(200,100,0,.45)','rgba(255,160,0,.85)'];
+  return getOwnerColor(owner);
+}
+
+// ══ 状態 ══
+let machines=[],currentMachineId=null,pendingSpecimen=null,isReserveMode=false,nextColor=0;
+let isSaving=false,lastUpdatedAt=null,pollingTimer=null;
+
+// ══ Supabase（fetch APIで直接通信・SDK不要） ══
+function setConnStatus(c){
+  const el=document.getElementById('conn-status');if(!el)return;
+  el.textContent=c?'🟢 クラウド同期中':'🔴 切断中';
+  el.style.color=c?'var(--ok)':'var(--danger)';
+}
+function showSyncToast(){
+  const t=document.getElementById('sync-toast');if(!t)return;
+  t.style.opacity='1';clearTimeout(t._t);
+  t._t=setTimeout(()=>t.style.opacity='0',1800);
+}
+function applyData(d){
+  machines=JSON.parse(JSON.stringify(d.machines||[]));
+  nextColor=d.next_color||0;
+  Object.keys(ownerColorMap).forEach(k=>delete ownerColorMap[k]);
+  ownerColorIdx=0;
+  machines.forEach(m=>(m.specimens||[]).forEach(sp=>{if(sp.owner)getOwnerColor(sp.owner);}));
+  localStorage.setItem('sst_v6',JSON.stringify({machines,nextColor}));
+  renderAll();
+}
+async function sbGet(){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_data?id=eq.main&select=machines,next_color,updated_at',{headers:SB_HEADERS});
+  if(!res.ok)throw new Error('GET '+res.status);
+  const arr=await res.json();
+  if(!arr||!arr.length)throw new Error('データなし');
+  return arr[0];
+}
+async function sbGetTime(){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_data?id=eq.main&select=updated_at',{headers:SB_HEADERS});
+  if(!res.ok)return null;
+  const arr=await res.json();
+  return arr&&arr.length?arr[0].updated_at:null;
+}
+async function sbPatch(body){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_data?id=eq.main',{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(body)});
+  if(!res.ok)throw new Error('PATCH '+res.status);
+}
+async function loadFromSupabase(){
+  try{
+    setConnStatus(false);
+    const d=await sbGet();
+    lastUpdatedAt=d.updated_at;
+    applyData(d);
+    setConnStatus(true);
+  }catch(e){
+    console.error('Supabase読み込みエラー:',e.message);
+    setConnStatus(false);
+    load();
+    renderAll();
+  }
+}
+async function pollForUpdates(){
+  if(isSaving)return;
+  try{
+    const t=await sbGetTime();
+    if(!t)return;
+    if(lastUpdatedAt&&t!==lastUpdatedAt){
+      const d=await sbGet();
+      lastUpdatedAt=d.updated_at;
+      applyData(d);
+      showSyncToast();
+    }else if(!lastUpdatedAt){lastUpdatedAt=t;}
+  }catch(e){}
+}
+function startPolling(){
+  if(pollingTimer)clearInterval(pollingTimer);
+  pollingTimer=setInterval(pollForUpdates,3000);
+  setConnStatus(true);
+}
+const save=async()=>{
+  const data={machines,nextColor};
+  localStorage.setItem('sst_v6',JSON.stringify(data));
+  try{
+    isSaving=true;
+    const newTime=new Date().toISOString();
+    await sbPatch({machines:JSON.parse(JSON.stringify(machines)),next_color:nextColor,updated_at:newTime});
+    lastUpdatedAt=newTime;
+    setTimeout(()=>isSaving=false,1000);
+  }catch(e){console.error('保存エラー:',e.message);isSaving=false;}
+};
+const load=()=>{
+  try{const d=localStorage.getItem('sst_v6');if(d){const p=JSON.parse(d);machines=p.machines||[];nextColor=p.nextColor||0;}}catch(e){}
+};
+
+// ══ ヘルパー ══
+const today=()=>new Date().toISOString().split('T')[0];
+const daysLeft=end=>Math.ceil((new Date(end)-new Date().setHours(0,0,0,0))/86400000);
+const statusCls=d=>d<0?'danger':d<=3?'warn':'';
+const dayLbl=d=>d<0?`${Math.abs(d)}日超過`:d===0?'本日終了':`残り${d}日`;
+const getMachine=()=>machines.find(m=>m.id===currentMachineId);
+const isBlocked=(m,r,c)=>c>=(m.bColStart-1)&&c<=(m.bColEnd-1)&&r>=(m.bRowStart-1)&&r<=(m.bRowEnd-1);
+const countValid=m=>{let v=0;for(let r=0;r<m.rows;r++)for(let c=0;c<m.cols;c++)if(!isBlocked(m,r,c))v++;return v;};
+function buildMap(m){
+  const map=Array.from({length:m.rows},()=>Array(m.cols).fill(null));
+  (m.specimens||[]).forEach(sp=>{
+    for(let dr=0;dr<(sp.spanRows||1);dr++)for(let dc=0;dc<(sp.spanCols||1);dc++){
+      const rr=sp.row+dr,cc=sp.col+dc;
+      if(rr<m.rows&&cc<m.cols&&map[rr][cc]===null)map[rr][cc]=sp.id;
+    }
+  });return map;
+}
+function canPlace(m,map,row,col,sR,sC){
+  for(let dr=0;dr<sR;dr++)for(let dc=0;dc<sC;dc++){
+    const rr=row+dr,cc=col+dc;
+    if(rr>=m.rows||cc>=m.cols||isBlocked(m,rr,cc)||map[rr][cc]!==null)return false;
+  }return true;
+}
+
+// ══ ドロワー ══
+function openDrawer(){document.getElementById('drawer').classList.add('open');renderChamberArea();renderSpecList();renderMachineList();}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');cancelPlacing();}
+function switchDTab(tab){
+  ['place','reserve','machines','backup'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+    const el=document.getElementById('dt-'+t);
+    el.className='dtab'+(t===tab?(tab==='reserve'?' active-r':' active'):'');
+  });
+  if(tab==='place'||tab==='reserve'){renderChamberArea();}
+}
+
+// ══ 試験機選択セレクト更新 ══
+function updateMachineSelects(){
+  ['sel-machine','sel-machine-r'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">-- 試験機を選択 --</option>';
+    machines.forEach(m=>{
+      const opt=document.createElement('option');
+      opt.value=m.id;opt.textContent=m.name;
+      if(m.id===currentMachineId)opt.selected=true;
+      sel.appendChild(opt);
+    });
+    if(cur)sel.value=cur;
+  });
+}
+
+// ══ 全体描画 ══
+function renderAll(){
+  renderBoard();
+  updateMachineSelects();
+  if(currentMachineId&&document.getElementById('drawer').classList.contains('open')){
+    renderChamberArea();renderSpecList();
+  }
+  renderMachineList();
+}
+
+// ══ 掲示板 ══
+function renderBoard(){
+  const totalValid=machines.reduce((s,m)=>s+countValid(m),0);
+  const totalUsed=machines.reduce((s,m)=>(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0)+s,0);
+  const totalFree=totalValid-totalUsed;
+  const util=totalValid?Math.round(totalUsed/totalValid*100):0;
+  document.getElementById('h-machines').textContent=machines.length;
+  document.getElementById('h-free').textContent=totalFree;
+  document.getElementById('h-util').textContent=util+'%';
+  document.getElementById('board-free-num').textContent=totalFree;
+
+  // 将来予測
+  const freeingSoon=[];
+  machines.forEach(m=>(m.specimens||[]).filter(s=>!s.isReserve).forEach(sp=>freeingSoon.push({days:daysLeft(sp.endDate),slots:(sp.spanCols||1)*(sp.spanRows||1)})));
+  const brackets=[{label:'7日以内に空く予定',max:7},{label:'14日以内',max:14},{label:'30日以内',max:30}];
+  const fr=document.getElementById('future-rows');fr.innerHTML='';
+  brackets.forEach(b=>{
+    const cnt=freeingSoon.filter(s=>s.days>=0&&s.days<=b.max).reduce((a,s)=>a+s.slots,0);
+    const pct=totalValid?Math.min(100,Math.round(cnt/totalValid*100)):0;
+    const div=document.createElement('div');div.className='future-row';
+    div.innerHTML=`<span class="future-label">${b.label}</span><div class="future-bar-wrap"><div class="future-bar" style="width:${pct}%"></div></div><span class="future-count">+${cnt}スロット</span>`;
+    fr.appendChild(div);
+  });
+
+  // まもなく終了
+  const upcoming=[];
+  machines.forEach(m=>(m.specimens||[]).filter(s=>!s.isReserve).forEach(sp=>{const d=daysLeft(sp.endDate);if(d<=7)upcoming.push({...sp,days:d,machineName:m.name});}));
+  upcoming.sort((a,b)=>a.days-b.days);
+  const uw=document.getElementById('upcoming-wrap');
+  const ui=document.getElementById('upcoming-items');
+  if(upcoming.length===0){uw.style.display='none';}
+  else{uw.style.display='block';ui.innerHTML=upcoming.map(sp=>`<div class="upcoming-chip ${statusCls(sp.days)}">${sp.name}（${sp.machineName}）${dayLbl(sp.days)}</div>`).join('');}
+
+  // 試験機カード
+  const grid=document.getElementById('board-machines');
+  if(machines.length===0){grid.innerHTML='<div style="color:var(--text2);font-size:13px;padding:40px;grid-column:1/-1;text-align:center;">試験機がまだ登録されていません<br><br><button onclick="openDrawer();switchDTab(\'machines\')" style="padding:8px 16px;background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer;font-size:12px;">＋ 試験機を追加</button></div>';return;}
+  grid.innerHTML='';
+  machines.forEach(m=>{
+    const valid=countValid(m);
+    const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+    const free=valid-used;
+    const util=valid?Math.round(used/valid*100):0;
+    const fc=free===0?'empty':free<=3?'low':'';
+    const card=document.createElement('div');card.className='machine-card';
+    // ミニグリッド
+    const map=buildMap(m);
+    let miniHtml=`<div class="mc-mini-grid" style="grid-template-columns:repeat(${m.cols},13px)">`;
+    for(let r=0;r<m.rows;r++)for(let c=0;c<m.cols;c++){
+      if(isBlocked(m,r,c)){miniHtml+='<div class="ms b"></div>';continue;}
+      const sid=map[r][c];
+      if(!sid){miniHtml+='<div class="ms e"></div>';}
+      else{const sp=(m.specimens||[]).find(s=>s.id===sid);if(sp.isReserve){miniHtml+='<div class="ms r"></div>';}else{const[bg]=getOwnerColor(sp.owner);miniHtml+=`<div class="ms u" style="background:${bg}"></div>`;}}
+    }
+    miniHtml+='</div>';
+    card.innerHTML=`
+      <div class="mc-name">${m.name}</div>
+      <div class="mc-free-row"><div class="mc-free-num ${fc}">${free}</div><div class="mc-free-label">スロット空き</div></div>
+      <div class="mc-bar-wrap"><div class="mc-bar ${fc}" style="width:${util}%"></div></div>
+      <div class="mc-stats"><span>使用中：${used}</span><span>有効計：${valid}</span><span>稼働率：${util}%</span></div>
+      ${miniHtml}`;
+    card.onclick=()=>{openDrawer();selectMachine(m.id);};
+    grid.appendChild(card);
+  });
+}
+
+// ══ 槽グリッド描画 ══
+function renderChamberArea(){
+  const areaIds=['chamber-area','chamber-area-r'];
+  areaIds.forEach(areaId=>{
+    const area=document.getElementById(areaId);if(!area)return;
+    if(!currentMachineId){area.innerHTML='<div style="font-size:11px;color:var(--text2);padding:10px;">試験機を選択してください</div>';return;}
+    const m=getMachine();if(!m){area.innerHTML='';return;}
+    area.innerHTML='';
+    const wrap=document.createElement('div');wrap.className='chamber-wrap';
+    const title=document.createElement('div');title.className='chamber-title';title.textContent=`${m.name} 試験槽ビュー`;
+    const legend=document.createElement('div');legend.className='legend';
+    legend.innerHTML=`
+      <div class="legend-item"><div class="legend-dot" style="background:#0c1828;border:1px solid #1a3355"></div>空き</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(0,90,210,.5);border:1px solid var(--accent)"></div>試験中</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(168,85,247,.3);border:1px dashed var(--reserve)"></div>予約</div>
+      <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#0d0f14 0,#0d0f14 3px,#111520 3px,#111520 6px)"></div>配置不可</div>`;
+    wrap.appendChild(title);wrap.appendChild(legend);
+    const outer=document.createElement('div');outer.className='grid-outer';
+    // col labels
+    const clRow=document.createElement('div');clRow.style.cssText=`display:flex;gap:2px;margin-left:20px;margin-bottom:2px;`;
+    for(let c=0;c<m.cols;c++){const l=document.createElement('div');l.style.cssText='width:48px;text-align:center;font-size:8px;color:var(--text2);opacity:.6;font-family:Rajdhani,sans-serif;';l.textContent=c+1;clRow.appendChild(l);}
+    outer.appendChild(clRow);
+    const gw=document.createElement('div');gw.style.cssText='display:flex;';
+    const rl=document.createElement('div');rl.style.cssText='display:flex;flex-direction:column;gap:2px;margin-right:3px;';
+    for(let r=0;r<m.rows;r++){const l=document.createElement('div');l.style.cssText='width:17px;height:48px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text2);opacity:.6;font-family:Rajdhani,sans-serif;';l.textContent=r+1;rl.appendChild(l);}
+    gw.appendChild(rl);
+    const gi=document.createElement('div');gi.className='grid-inner';
+    gi.style.cssText=`grid-template-columns:repeat(${m.cols},48px);grid-template-rows:repeat(${m.rows},48px);`;
+    const map=buildMap(m);
+    for(let r=0;r<m.rows;r++)for(let c=0;c<m.cols;c++){
+      const el=document.createElement('div');el.className='slot';el.dataset.row=r;el.dataset.col=c;
+      if(isBlocked(m,r,c)){el.classList.add('blocked');}
+      else{
+        const sid=map[r][c];
+        if(!sid){
+          el.classList.add('empty');
+          if(pendingSpecimen){
+            el.classList.add('placing');
+            el.addEventListener('mousedown',e=>onSlotMouseDown(e,r,c));
+            el.addEventListener('mouseenter',()=>onSlotMouseEnter(r,c));
+          }
+          el.innerHTML=`<span class="slot-coord">${c+1}-${r+1}</span>`;
+        }else{
+          const sp=(m.specimens||[]).find(s=>s.id===sid);
+          const isOrigin=sp.row===r&&sp.col===c;
+          const isRight=c<sp.col+(sp.spanCols||1)-1;
+          const isBottom=r<sp.row+(sp.spanRows||1)-1;
+          if(sp.isReserve){
+            el.classList.add('reserved');el.style.background=RESERVE_BG;el.style.borderColor=RESERVE_BC;
+            if(isRight)el.style.borderRightColor='transparent';
+            if(isBottom)el.style.borderBottomColor='transparent';
+            el.innerHTML=isOrigin?`<span class="slot-coord">${c+1}-${r+1}</span><div class="slot-label">${sp.name}</div><div class="slot-owner">${sp.owner||''}</div>`:`<span class="slot-coord" style="opacity:.15">${c+1}-${r+1}</span>`;
+          }else{
+            const days=daysLeft(sp.endDate),sc=statusCls(days);
+            const[bg,bc]=activeColor(days,sp.owner);
+            el.classList.add('occupied');
+            if(sc==='warn')el.classList.add('s-warn');
+            if(sc==='danger')el.classList.add('s-danger');
+            el.style.background=bg;el.style.borderColor=bc;
+            if(isRight)el.style.borderRightColor='transparent';
+            if(isBottom)el.style.borderBottomColor='transparent';
+            el.innerHTML=isOrigin?`<span class="slot-coord">${c+1}-${r+1}</span><div class="slot-label">${sp.name}</div><div class="slot-owner">${sp.owner||''}</div><div class="slot-days">${days<0?'超過':days===0?'本日':days+'d'}</div>`:`<span class="slot-coord" style="opacity:.15">${c+1}-${r+1}</span>`;
+            el.addEventListener('mouseenter',e=>showTooltip(e,sp));
+            el.addEventListener('mousemove',moveTooltip);
+            el.addEventListener('mouseleave',hideTooltip);
+          }
+        }
+      }
+      gi.appendChild(el);
+    }
+    gw.appendChild(gi);outer.appendChild(gw);wrap.appendChild(outer);area.appendChild(wrap);
+  });
+}
+
+// ══ ドラッグ選択 ══
+let dragStartRow=-1,dragStartCol=-1,dragEndRow=-1,dragEndCol=-1,isDragging=false;
+function getDragRange(){return{r1:Math.min(dragStartRow,dragEndRow),r2:Math.max(dragStartRow,dragEndRow),c1:Math.min(dragStartCol,dragEndCol),c2:Math.max(dragStartCol,dragEndCol)};}
+function onSlotMouseDown(e,row,col){if(!pendingSpecimen)return;e.preventDefault();isDragging=true;dragStartRow=dragEndRow=row;dragStartCol=dragEndCol=col;updateDragHL();}
+function onSlotMouseEnter(row,col){if(!isDragging||!pendingSpecimen)return;dragEndRow=row;dragEndCol=col;updateDragHL();}
+function onSlotMouseUp(){
+  if(!isDragging||!pendingSpecimen)return;isDragging=false;
+  const{r1,r2,c1,c2}=getDragRange();
+  pendingSpecimen.spanRows=r2-r1+1;pendingSpecimen.spanCols=c2-c1+1;
+  placeSpecimen(r1,c1);clearDragHL();
+}
+function updateDragHL(){
+  const m=getMachine();if(!m)return;
+  const map=buildMap(m);const{r1,r2,c1,c2}=getDragRange();
+  document.querySelectorAll('.slot.drag-hover,.slot.drag-invalid').forEach(el=>{el.classList.remove('drag-hover','drag-invalid');});
+  for(let r=r1;r<=r2;r++)for(let c=c1;c<=c2;c++){
+    const el=document.querySelector(`.slot[data-row="${r}"][data-col="${c}"]`);if(!el)continue;
+    if(isBlocked(m,r,c)||map[r][c]!==null)el.classList.add('drag-invalid');
+    else el.classList.add('drag-hover');
+  }
+}
+function clearDragHL(){document.querySelectorAll('.slot.drag-hover,.slot.drag-invalid').forEach(el=>{el.classList.remove('drag-hover','drag-invalid');});}
+document.addEventListener('mouseup',()=>{if(isDragging)onSlotMouseUp();});
+
+// ══ 配置 ══
+function selectMachine(id){
+  if(!id)return;
+  currentMachineId=id;
+  // セレクトを同期
+  ['sel-machine','sel-machine-r'].forEach(sid=>{const el=document.getElementById(sid);if(el)el.value=id;});
+  renderChamberArea();renderSpecList();
+}
+function startPlacing(isReserve){
+  if(!currentMachineId){alert('試験機を選択してください');return;}
+  isReserveMode=isReserve;
+  const name=document.getElementById(isReserve?'res-name':'input-name').value.trim();
+  const owner=document.getElementById(isReserve?'res-owner':'input-owner').value.trim();
+  const startDate=document.getElementById(isReserve?'res-start':'input-start').value;
+  const endDate=document.getElementById(isReserve?'res-end':'input-end').value;
+  if(!name||!startDate||!endDate){alert('必要項目を入力してください');return;}
+  if(endDate<startDate){alert('終了日が開始日より前です');return;}
+  const m=getMachine();
+  const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+  if(used>=countValid(m)){alert('空きスロットがありません');return;}
+  pendingSpecimen={name,owner,startDate,endDate,isReserve};
+  document.getElementById(isReserve?'hint-reserve':'hint-place').style.display='block';
+  document.getElementById(isReserve?'cancel-reserve':'cancel-place').classList.add('show');
+  document.getElementById(isReserve?'btn-reserve':'btn-place').disabled=true;
+  dragStartRow=dragStartCol=dragEndRow=dragEndCol=-1;
+  renderChamberArea();
+}
+function cancelPlacing(){
+  pendingSpecimen=null;isDragging=false;
+  ['hint-place','hint-reserve'].forEach(id=>document.getElementById(id).style.display='none');
+  ['cancel-place','cancel-reserve'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('btn-place').disabled=false;
+  document.getElementById('btn-reserve').disabled=false;
+  renderChamberArea();
+}
+function placeSpecimen(row,col){
+  if(!pendingSpecimen)return;
+  const m=getMachine();const map=buildMap(m);
+  const sR=pendingSpecimen.spanRows||1,sC=pendingSpecimen.spanCols||1;
+  if(!canPlace(m,map,row,col,sR,sC)){alert(`${sC}列×${sR}行分の空きがありません`);return;}
+  m.specimens=m.specimens||[];
+  m.specimens.push({...pendingSpecimen,id:Date.now().toString(),row,col});
+  if(!pendingSpecimen.isReserve)nextColor++;
+  pendingSpecimen=null;
+  ['hint-place','hint-reserve'].forEach(id=>document.getElementById(id).style.display='none');
+  ['cancel-place','cancel-reserve'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('btn-place').disabled=false;
+  document.getElementById('btn-reserve').disabled=false;
+  document.getElementById('input-name').value='';
+  document.getElementById('res-name').value='';
+  save();renderAll();
+}
+
+// ══ 試験体リスト ══
+function renderSpecList(){
+  const m=getMachine();const el=document.getElementById('spec-list');
+  if(!m||!(m.specimens||[]).length){el.innerHTML='<div style="font-size:11px;color:var(--text2);">なし</div>';return;}
+  el.innerHTML=m.specimens.map(sp=>{
+    const isRes=sp.isReserve;const days=daysLeft(sp.endDate);const sc=isRes?'':statusCls(days);
+    const[,bc]=getOwnerColor(sp.owner);const bcol=isRes?'var(--reserve)':days<0?'rgba(255,100,100,.85)':days<=3?'rgba(255,160,0,.85)':bc;
+    return `<div class="spec-item ${sc}${isRes?' is-r':''}" style="border-left-color:${bcol}">
+      <div><div class="spec-name">${isRes?'📅 ':''} ${sp.name}</div><div class="spec-meta">${sp.owner||'—'} ／ ${sp.col+1}列${sp.row+1}行（${sp.spanCols||1}×${sp.spanRows||1}）／ ${isRes?sp.startDate+'〜':dayLbl(days)}</div></div>
+      <button class="btn-del" onclick="removeSpecimen('${sp.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+function removeSpecimen(id){
+  const m=getMachine();if(!m)return;
+  m.specimens=(m.specimens||[]).filter(s=>s.id!==id);
+  save();renderAll();
+}
+
+// ══ 試験機管理 ══
+function renderMachineList(){
+  const el=document.getElementById('machine-list');if(!el)return;
+  if(!machines.length){el.innerHTML='<div style="font-size:11px;color:var(--text2);">試験機がありません</div>';return;}
+  el.innerHTML=machines.map(m=>{
+    const valid=countValid(m);const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+    return `<div class="machine-list-item">
+      <div><div class="mli-name">${m.name}</div><div class="mli-meta">${m.cols}列×${m.rows}行 ／ 空き${valid-used}/${valid}スロット</div></div>
+      <button class="mli-del" onclick="deleteMachine('${m.id}')">削除</button>
+    </div>`;
+  }).join('');
+}
+function deleteMachine(id){
+  const m=machines.find(m=>m.id===id);if(!m)return;
+  if(!confirm(`「${m.name}」を削除しますか？\n登録されている試験体データもすべて削除されます。`))return;
+  machines=machines.filter(m=>m.id!==id);
+  if(currentMachineId===id)currentMachineId=machines.length?machines[0].id:null;
+  save();renderAll();renderMachineList();
+}
+function openAddMachine(){document.getElementById('machine-modal').classList.add('open');document.getElementById('m-name').value='';updateCalc();}
+function updateCalc(){
+  const cols=parseInt(document.getElementById('m-cols').value)||0;const rows=parseInt(document.getElementById('m-rows').value)||0;
+  const bcs=parseInt(document.getElementById('m-bcol-start').value)||0;const bce=parseInt(document.getElementById('m-bcol-end').value)||0;
+  const brs=parseInt(document.getElementById('m-brow-start').value)||0;const bre=parseInt(document.getElementById('m-brow-end').value)||0;
+  const total=cols*rows;const blocked=Math.max(0,bce-bcs+1)*Math.max(0,bre-brs+1);
+  document.getElementById('m-calc').textContent=`合計${total} ／ 噴霧塔不可${blocked} ／ 有効${total-blocked}スロット`;
+}
+function addMachine(){
+  const name=document.getElementById('m-name').value.trim();
+  const cols=parseInt(document.getElementById('m-cols').value);const rows=parseInt(document.getElementById('m-rows').value);
+  if(!name||!cols||!rows){alert('名称・列数・行数を入力してください');return;}
+  const m={id:Date.now().toString(),name,cols,rows,
+    bColStart:parseInt(document.getElementById('m-bcol-start').value)||6,
+    bColEnd:parseInt(document.getElementById('m-bcol-end').value)||9,
+    bRowStart:parseInt(document.getElementById('m-brow-start').value)||3,
+    bRowEnd:parseInt(document.getElementById('m-brow-end').value)||4,
+    specimens:[]};
+  machines.push(m);
+  document.getElementById('machine-modal').classList.remove('open');
+  currentMachineId=m.id;
+  save();renderAll();renderMachineList();
+}
+
+// ══ バックアップ ══
+function downloadBackup(){
+  const data={version:2,timestamp:new Date().toISOString(),machines,nextColor};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  const ts=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.href=URL.createObjectURL(blob);a.download=`salt_spray_backup_${ts}.json`;a.click();
+  URL.revokeObjectURL(a.href);
+  const msg=document.getElementById('backup-msg');msg.textContent='✓ ダウンロードしました！';msg.style.display='block';
+  setTimeout(()=>msg.style.display='none',3000);
+}
+function restoreBackup(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(!d.machines)throw new Error('無効なファイル');
+      if(!confirm(`バックアップ（${d.timestamp||'不明'}）から復元しますか？\n現在のデータは上書きされます。`))return;
+      machines=d.machines;nextColor=d.nextColor||0;
+      save();renderAll();renderMachineList();
+      const msg=document.getElementById('backup-msg');msg.textContent='✓ 復元しました！';msg.style.display='block';
+      setTimeout(()=>msg.style.display='none',3000);
+    }catch(err){alert('ファイルの読み込みに失敗しました：'+err.message);}
+  };reader.readAsText(file);input.value='';
+}
+
+// ══ ツールチップ ══
+function showTooltip(e,sp){
+  const days=daysLeft(sp.endDate);
+  document.getElementById('tt-name').textContent=sp.name;
+  document.getElementById('tt-owner').textContent=`担当：${sp.owner||'—'}`;
+  document.getElementById('tt-pos').textContent=`位置：${sp.col+1}列・${sp.row+1}行（${sp.spanCols||1}×${sp.spanRows||1}）`;
+  document.getElementById('tt-start').textContent=`開始：${sp.startDate}`;
+  document.getElementById('tt-end').textContent=`終了予定：${sp.endDate}`;
+  document.getElementById('tt-remain').textContent=dayLbl(days);
+  document.getElementById('tooltip').style.display='block';
+  moveTooltip(e);
+}
+function moveTooltip(e){const t=document.getElementById('tooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY+14)+'px';}
+function hideTooltip(){document.getElementById('tooltip').style.display='none';}
+
+// ══ 起動 ══
+document.getElementById('input-start').value=today();
+document.getElementById('res-start').value=today();
+const de=new Date();de.setDate(de.getDate()+48);
+const def=de.toISOString().split('T')[0];
+document.getElementById('input-end').value=def;
+document.getElementById('res-end').value=def;
+updateCalc();
+
+load();renderAll();
+
+// Supabaseに直接fetch接続（SDKなし）
+loadFromSupabase().then(()=>startPolling());
+</script>
+</body>
+</html>
