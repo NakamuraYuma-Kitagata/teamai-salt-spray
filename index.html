@@ -1,0 +1,2049 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>塩水噴霧試験機 管理システム</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+:root{
+  --bg:#080c14;--bg2:#0f1a2e;--bg3:#162035;--border:#1a3355;
+  --accent:#00d4ff;--accent2:#0055ff;--ok:#00e676;--warn:#ff9800;
+  --danger:#ff3d57;--text:#ddeeff;--text2:#6a8faf;--reserve:#a855f7;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;}
+
+/* ══ 掲示板モード（全画面デフォルト） ══ */
+#board{position:fixed;inset:0;display:flex;flex-direction:column;z-index:1;}
+
+/* ヘッダーバー */
+.board-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;background:rgba(8,12,20,.97);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.board-logo{display:flex;align-items:center;gap:10px;}
+.board-logo-icon{width:32px;height:32px;border:2px solid var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;animation:pb 3s infinite;}
+@keyframes pb{0%,100%{box-shadow:0 0 10px rgba(0,212,255,.3)}50%{box-shadow:0 0 20px rgba(0,212,255,.6)}}
+.board-logo h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;color:var(--accent);}
+.board-logo p{font-size:9px;color:var(--text2);}
+.board-header-right{display:flex;align-items:center;gap:12px;}
+.hstat{text-align:right;}
+.hstat-val{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;color:var(--accent);}
+.hstat-label{font-size:9px;color:var(--text2);letter-spacing:1px;}
+#conn-status{font-size:10px;color:var(--text2);padding:3px 8px;border:1px solid var(--border);border-radius:4px;}
+.btn-operate{padding:6px 14px;background:rgba(0,85,255,.2);border:1px solid var(--accent2);color:var(--accent);border-radius:6px;cursor:pointer;font-size:11px;font-family:'Noto Sans JP',sans-serif;transition:all .2s;}
+.btn-operate:hover{background:rgba(0,85,255,.4);}
+
+/* ══ 掲示板コンテンツ ══ */
+.board-content{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:12px;}
+
+/* サマリーバー */
+.board-summary{
+  display:grid;grid-template-columns:auto 1px 1fr;
+  gap:0;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;flex-shrink:0;
+}
+.summary-free{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:12px 28px;
+}
+.summary-free .big-num{font-family:'Rajdhani',sans-serif;font-size:64px;font-weight:700;line-height:1;color:var(--ok);text-shadow:0 0 30px rgba(0,230,118,.4);}
+.summary-free .big-label{font-size:11px;color:var(--text2);letter-spacing:1px;margin-top:2px;}
+.summary-divider{background:var(--border);}
+.summary-future{padding:12px 20px;display:flex;flex-direction:column;justify-content:center;gap:6px;}
+.summary-future-title{font-size:9px;color:var(--text2);letter-spacing:1px;margin-bottom:2px;}
+.future-row{display:flex;align-items:center;gap:8px;font-size:11px;}
+.future-label{color:var(--text2);min-width:110px;font-size:10px;}
+.future-bar-wrap{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.future-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--ok));}
+.future-count{font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--ok);min-width:60px;text-align:right;}
+
+/* 試験機カードグリッド */
+.board-machines{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;flex:1;}
+.machine-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:14px;display:flex;flex-direction:column;gap:8px;
+  position:relative;overflow:hidden;transition:border-color .2s;
+}
+.machine-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));}
+.machine-card:hover{border-color:var(--accent);}
+.mc-name{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;}
+.mc-free-row{display:flex;align-items:flex-end;gap:6px;}
+.mc-free-num{font-family:'Rajdhani',sans-serif;font-size:44px;font-weight:700;line-height:1;color:var(--ok);}
+.mc-free-num.low{color:var(--warn);}
+.mc-free-num.empty{color:var(--danger);}
+.mc-free-label{font-size:11px;color:var(--text2);margin-bottom:6px;}
+.mc-bar-wrap{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.mc-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--ok));transition:width .5s;}
+.mc-bar.low{background:linear-gradient(90deg,var(--warn),#ffb74d);}
+.mc-bar.full{background:var(--danger);}
+.mc-stats{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);}
+
+/* ミニグリッド */
+.mc-mini-grid{display:inline-grid;gap:2px;margin-top:4px;}
+.ms{width:13px;height:13px;border-radius:2px;}
+.ms.e{background:#0c1828;border:1px solid #1a3355;}
+.ms.u{border:none;}
+.ms.r{border:1px dashed rgba(168,85,247,.5);background:rgba(168,85,247,.15);}
+.ms.b{background:repeating-linear-gradient(45deg,#0c0e14 0,#0c0e14 2px,#111520 2px,#111520 4px);}
+
+/* まもなく終了 */
+.upcoming-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;flex-shrink:0;}
+.upcoming-wrap h3{font-size:10px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;}
+.upcoming-items{display:flex;flex-wrap:wrap;gap:6px;}
+.upcoming-chip{padding:4px 10px;border-radius:20px;font-size:10px;background:var(--bg3);border:1px solid var(--border);}
+.upcoming-chip.warn{border-color:var(--warn);color:var(--warn);}
+.upcoming-chip.danger{border-color:var(--danger);color:var(--danger);animation:blink 1.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ══ 操作パネル（フローティング） ══ */
+#fab{
+  position:fixed;bottom:20px;right:20px;z-index:100;
+}
+.fab-btn{
+  width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border:none;color:#fff;font-size:22px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,212,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .3s;
+}
+.fab-btn:hover{transform:scale(1.1);}
+
+/* 操作ドロワー */
+#drawer{
+  position:fixed;inset:0;z-index:200;display:none;
+}
+#drawer.open{display:block;}
+.drawer-overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);}
+.drawer-panel{
+  position:absolute;right:0;top:0;bottom:0;width:min(520px,100vw);
+  background:var(--bg);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.drawer-header{
+  padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--bg2);flex-shrink:0;
+}
+.drawer-header h2{font-family:'Rajdhani',sans-serif;font-size:15px;letter-spacing:1px;color:var(--accent);}
+.drawer-close{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;}
+.drawer-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+.dtab{flex:1;padding:12px;background:transparent;border:none;color:var(--text2);font-size:13px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.dtab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.dtab.active-r{color:var(--reserve);border-bottom-color:var(--reserve);}
+.drawer-body{flex:1;overflow-y:auto;padding:16px;font-size:13px;}
+
+/* フォーム */
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:10px;color:var(--text2);margin-bottom:4px;letter-spacing:.5px;}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 11px;border-radius:5px;font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .2s;}
+.fg input:focus,.fg select:focus{border-color:var(--accent);}
+.btn-p{width:100%;padding:11px;background:linear-gradient(135deg,var(--accent2),var(--accent));font-size:13px !important;border:none;border-radius:6px;color:#fff;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:6px;}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,212,255,.3);}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-r{width:100%;padding:9px;background:linear-gradient(135deg,var(--reserve2,#7c3aed),var(--reserve));border:none;border-radius:6px;color:#fff;font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:500;cursor:pointer;transition:all .2s;margin-bottom:6px;}
+.btn-r:hover{transform:translateY(-1px);}
+.btn-r:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.hint-box{display:none;padding:8px 10px;border-radius:5px;font-size:11px;text-align:center;margin-bottom:6px;}
+.hint-box.place{background:rgba(0,212,255,.07);border:1px dashed var(--accent);color:var(--accent);}
+.hint-box.reserve{background:rgba(168,85,247,.07);border:1px dashed var(--reserve);color:var(--reserve);}
+.btn-cancel{width:100%;padding:6px;background:transparent;border:1px solid var(--danger);border-radius:5px;color:var(--danger);font-size:11px;cursor:pointer;display:none;}
+.btn-cancel.show{display:block;}
+
+/* 試験体リスト */
+.spec-list{display:flex;flex-direction:column;gap:5px;}
+.spec-item{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:5px;border-left:3px solid var(--accent2);font-size:11px;}
+.spec-item.warn{border-left-color:var(--warn);}
+.spec-item.danger{border-left-color:var(--danger);}
+.spec-item.is-r{border-left-color:var(--reserve);border-style:dashed;}
+.spec-name{font-weight:500;}
+.spec-meta{color:var(--text2);font-size:10px;margin-top:1px;}
+.btn-del{background:none;border:none;color:var(--text2);cursor:pointer;padding:2px 5px;font-size:12px;border-radius:3px;}
+.btn-del:hover{color:var(--danger);background:rgba(255,61,87,.1);}
+
+/* 試験機管理 */
+.machine-list{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.machine-list-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg3);border-radius:6px;font-size:11px;}
+.machine-list-item .mli-name{font-weight:500;font-family:'Rajdhani',sans-serif;font-size:13px;}
+.machine-list-item .mli-meta{color:var(--text2);font-size:10px;}
+.machine-list-item .mli-del{background:none;border:none;color:var(--text2);cursor:pointer;padding:3px 7px;font-size:12px;border-radius:3px;}
+.machine-list-item .mli-del:hover{color:var(--danger);background:rgba(255,61,87,.1);}
+.machine-list-item .mli-lock{color:var(--ok);font-size:10px;padding:2px 6px;border:1px solid var(--ok);border-radius:3px;}
+
+/* 槽ビュー */
+.chamber-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;}
+.chamber-title{font-family:'Rajdhani',sans-serif;font-size:13px;color:var(--accent);letter-spacing:1px;margin-bottom:8px;}
+.grid-outer{background:#050b14;border:1px solid var(--border);border-radius:6px;padding:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.grid-inner{display:inline-grid;gap:2px;user-select:none;}
+.slot{width:48px;height:48px;border-radius:4px;border:1px solid #1a3355;background:#060e1a;cursor:pointer;transition:all .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;text-align:center;padding:3px;font-size:7px;}
+.slot.occupied{border-width:2px;}
+.slot.reserved{border-width:2px;}
+.slot-coord{position:absolute;top:1px;left:2px;font-size:6px;color:rgba(100,140,180,.3);font-family:'Rajdhani',sans-serif;line-height:1;}
+.slot-label{font-size:clamp(7px,1.5vw,12px);font-weight:600;line-height:1.2;color:#fff;word-break:break-all;}
+.slot-owner{font-size:clamp(6px,1.2vw,10px);opacity:.8;margin-top:1px;color:rgba(255,255,255,.7);}
+.slot-days{font-family:'Rajdhani',sans-serif;font-size:clamp(7px,1.4vw,11px);opacity:.9;font-weight:600;}
+.slot.empty:hover{border-color:var(--accent);background:rgba(0,212,255,.1);}
+.slot.placing{border-color:var(--accent)!important;background:rgba(0,212,255,.1)!important;cursor:crosshair;animation:pp .9s infinite;}
+@keyframes pp{0%,100%{opacity:1}50%{opacity:.5}}
+.slot.drag-hover{border-color:var(--accent)!important;background:rgba(0,212,255,.2)!important;transform:scale(.94);}
+.slot.drag-invalid{border-color:var(--danger)!important;background:rgba(255,61,87,.15)!important;}
+.slot.occupied,.slot.reserved{cursor:default;}
+.slot.occupied:hover,.slot.reserved:hover{filter:brightness(1.2);z-index:5;}
+.slot.s-warn{border-color:var(--warn)!important;}
+.slot.s-danger{border-color:var(--danger)!important;animation:blink 1.5s infinite;}
+.slot.blocked{background:repeating-linear-gradient(45deg,#0d0f14 0,#0d0f14 3px,#111520 3px,#111520 6px);border-color:#141820;cursor:not-allowed;}
+.slot.blocked::after{content:'✕';font-size:12px;color:rgba(255,61,87,.2);}
+
+/* バックアップ */
+.backup-section{background:var(--bg3);border-radius:6px;padding:12px;margin-top:10px;}
+.backup-section h4{font-size:11px;color:var(--text2);margin-bottom:8px;letter-spacing:.5px;}
+.btn-backup{width:100%;padding:7px;background:rgba(0,230,118,.1);border:1px solid var(--ok);border-radius:5px;color:var(--ok);font-size:11px;cursor:pointer;margin-bottom:6px;transition:all .2s;}
+.btn-backup:hover{background:rgba(0,230,118,.2);}
+
+/* 凡例 */
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text2);}
+.legend-dot{width:10px;height:10px;border-radius:2px;}
+
+/* モーダル */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;padding:14px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:22px;width:100%;max-width:340px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.modal h2{font-family:'Rajdhani',sans-serif;color:var(--accent);font-size:15px;letter-spacing:1px;margin-bottom:14px;}
+.modal-close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;}
+.m-calc{font-size:10px;color:var(--accent);margin-bottom:10px;padding:6px;background:var(--bg3);border-radius:4px;}
+
+/* トースト */
+#sync-toast{position:fixed;bottom:80px;right:20px;background:rgba(0,230,118,.15);border:1px solid var(--ok);border-radius:8px;padding:7px 14px;font-size:11px;color:var(--ok);z-index:9999;opacity:0;transition:opacity .4s;pointer-events:none;}
+
+/* ツールチップ */
+.tooltip{position:fixed;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 11px;font-size:10px;pointer-events:none;z-index:999;display:none;min-width:150px;box-shadow:0 4px 15px rgba(0,0,0,.4);}
+.tt-name{font-weight:600;color:var(--accent);margin-bottom:3px;font-size:11px;}
+.tt-row{color:var(--text2);margin-top:2px;}
+
+/* スクロール */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ══ 全画面モーダル ══ */
+.fullscreen-modal{
+  position:fixed;inset:0;z-index:500;
+  background:var(--bg);
+  display:none;
+  flex-direction:column;
+  overflow:hidden;
+  height:100dvh;
+}
+.fullscreen-modal.open{display:flex;}
+.fm-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  min-height:48px;
+}
+.fm-title{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;color:var(--accent);}
+.fm-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px 10px;border-radius:6px;}
+.fm-close:hover{background:rgba(255,255,255,.08);color:var(--text);}
+
+/* ハイライトスロット（点滅なし） */
+.slot.highlight-sp{
+  border:3px solid #fff !important;
+  z-index:10 !important;
+}
+.fm-body{flex:1;overflow:hidden;padding:8px;display:flex;flex-direction:column;min-height:0;}
+
+/* 試験体詳細カード */
+.sp-detail-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:16px;margin-bottom:12px;
+  position:relative;overflow:hidden;
+}
+.sp-detail-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:4px;}
+.sp-progress-bar-wrap{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:10px 0;}
+.sp-progress-bar{height:100%;border-radius:4px;transition:width .5s;}
+
+/* モバイル */
+.pc-only{display:flex;}
+.sp-only{display:none;}
+.sp-header{width:100%;display:flex;align-items:center;justify-content:space-between;}
+
+/* ══ スマホ対応（768px以下） ══ */
+@media(max-width:768px){
+  .pc-only{display:none!important;}
+  .sp-only{display:flex!important;}
+
+  /* ヘッダー */
+  .board-header{padding:8px 12px;min-height:52px;}
+
+  /* コンテンツ余白縮小 */
+  .board-content{padding:8px 10px;gap:8px;}
+
+  /* サマリーバー */
+  .board-summary{grid-template-columns:1fr;}
+  .summary-free{
+    padding:14px 16px;
+    flex-direction:row;
+    align-items:center;
+    gap:14px;
+    justify-content:flex-start;
+  }
+  .summary-free .big-num{font-size:52px;}
+  .summary-free .big-label{font-size:12px;}
+  .summary-divider{display:none;}
+  .summary-future{padding:12px 16px;}
+  .future-label{font-size:11px;min-width:100px;}
+  .future-count{font-size:12px;}
+  .future-bar-wrap{min-width:80px;}
+
+  /* 試験機カード */
+  .board-machines{grid-template-columns:1fr;gap:8px;}
+  .machine-card{padding:14px;}
+  .mc-name{font-size:17px;}
+  .mc-free-num{font-size:44px;}
+  .mc-free-label{font-size:12px;}
+  .mc-stats span{font-size:11px;}
+
+  /* まもなく終了 */
+  .upcoming-wrap{padding:10px 12px;}
+  .upcoming-chip{font-size:11px;padding:5px 12px;}
+
+  /* ドロワー */
+  .drawer-panel{width:100%!important;}
+  .drawer-header{padding:14px 16px;}
+  .drawer-header h2{font-size:17px;}
+  .drawer-close{font-size:22px;padding:4px 8px;}
+  .dtab{font-size:13px;padding:14px 6px;}
+  .drawer-body{padding:14px;}
+
+  /* フォーム */
+  .fg{margin-bottom:14px;}
+  .fg label{font-size:12px;margin-bottom:6px;}
+  .fg input,.fg select{
+    font-size:16px!important;
+    padding:13px 12px!important;
+    border-radius:8px;
+  }
+  select{font-size:16px!important;padding:13px 12px!important;}
+  .btn-p,.btn-r{
+    padding:15px!important;
+    font-size:16px!important;
+    border-radius:10px;
+    margin-bottom:10px;
+  }
+  .btn-cancel{font-size:13px;padding:12px;}
+  .hint-box{font-size:12px;padding:11px;}
+
+  /* 試験体リスト */
+  .spec-item{padding:10px 12px;gap:6px;}
+  .spec-name{font-size:13px;}
+  .spec-meta{font-size:11px;}
+  .btn-del{font-size:18px;padding:4px 10px;}
+
+  /* 槽グリッド */
+  .slot{width:38px;height:38px;}
+  .slot-label{font-size:7px;}
+  .slot-owner{font-size:6px;}
+  .slot-coord{font-size:5px;}
+  .grid-outer{padding:4px;}
+
+  /* FAB */
+  #fab{display:none;} /* スマホはヘッダーのボタンを使う */
+
+  /* バックアップ */
+  .backup-section{padding:14px;}
+}
+
+/* ══ 極小画面（380px以下） ══ */
+@media(max-width:380px){
+  .summary-free .big-num{font-size:42px;}
+  .mc-free-num{font-size:36px;}
+  .slot{width:32px;height:32px;}
+  .dtab{font-size:11px;padding:12px 3px;}
+  .fg input,.fg select{font-size:15px!important;padding:11px 10px!important;}
+  .btn-p,.btn-r{padding:13px!important;font-size:15px!important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ 掲示板モード（全画面） ══ -->
+<!-- ══ ログイン画面 ══ -->
+<div id="login-screen" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;">
+  <div style="width:100%;max-width:360px;padding:20px;">
+    <!-- ロゴ -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="width:64px;height:64px;border:2px solid var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;animation:pb 3s infinite;">🧪</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:2px;color:var(--accent);">SALT SPRAY TEST</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;">塩水噴霧試験機 管理システム</div>
+    </div>
+    <!-- パスワード入力 -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;text-align:center;">パスワードを入力してください</div>
+      <div style="position:relative;margin-bottom:14px;">
+        <input type="password" id="login-input"
+          placeholder="パスワード"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:14px 46px 14px 14px;border-radius:8px;font-size:16px;outline:none;transition:border-color .2s;"
+          onkeydown="if(event.key==='Enter')doLogin()"
+          onfocus="this.style.borderColor='var(--accent)'"
+          onblur="this.style.borderColor='var(--border)'">
+        <button onclick="togglePw()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;" id="pw-eye">👁</button>
+      </div>
+      <div id="login-error" style="display:none;color:var(--danger);font-size:11px;text-align:center;margin-bottom:10px;">❌ パスワードが違います</div>
+      <button onclick="doLogin()"
+        style="width:100%;padding:14px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:8px;color:#fff;font-size:15px;font-family:'Noto Sans JP',sans-serif;font-weight:500;cursor:pointer;transition:all .2s;">
+        ログイン →
+      </button>
+    </div>
+    <!-- バージョン -->
+    <div style="text-align:center;margin-top:16px;font-size:10px;color:var(--text2);">Salt Spray Monitor v2.0</div>
+  </div>
+</div>
+
+<div id="board">
+  <div class="board-header">
+    <div class="board-logo">
+      <div class="board-logo-icon">🧪</div>
+      <div>
+        <h1>SALT SPRAY TEST MONITOR</h1>
+        <p>塩水噴霧試験機 管理システム</p>
+      </div>
+    </div>
+    <div class="board-header-right">
+      <span id="conn-status">⏳ 接続中...</span>
+      <div class="hstat"><div class="hstat-val" id="h-machines">0</div><div class="hstat-label">試験機台数</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-free" style="color:var(--ok)">0</div><div class="hstat-label">全体空きスロット</div></div>
+      <div class="hstat"><div class="hstat-val" id="h-util">0%</div><div class="hstat-label">全体稼働率</div></div>
+      <button class="btn-operate" onclick="openDrawer()">⚙ 操作・設定</button>
+      <button onclick="logout()" style="padding:6px 12px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:6px;cursor:pointer;font-size:11px;transition:all .2s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">🚪 ログアウト</button>
+    </div>
+  </div>
+
+  <div class="board-content">
+    <!-- サマリー -->
+    <div class="board-summary">
+      <div class="summary-free">
+        <div class="big-num" id="board-free-num">0</div>
+        <div class="big-label">全体 空きスロット</div>
+      </div>
+      <div class="summary-divider"></div>
+      <div class="summary-future">
+        <div class="summary-future-title">📅 将来の空き予測</div>
+        <div id="future-rows"></div>
+      </div>
+    </div>
+
+    <!-- まもなく終了 -->
+    <div class="upcoming-wrap" id="upcoming-wrap" style="display:none">
+      <h3>⏰ まもなく終了（7日以内）</h3>
+      <div class="upcoming-items" id="upcoming-items"></div>
+    </div>
+
+    <!-- 試験機カード -->
+    <div class="board-machines" id="board-machines">
+      <div style="color:var(--text2);font-size:13px;padding:20px;grid-column:1/-1;text-align:center;">試験機がまだ登録されていません</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FAB ══ -->
+<div id="fab">
+  <button class="fab-btn" onclick="openDrawer()" title="操作パネルを開く">⚙</button>
+</div>
+
+<!-- ══ 操作ドロワー ══ -->
+<div id="drawer">
+  <div class="drawer-overlay" onclick="closeDrawer()"></div>
+  <div class="drawer-panel">
+    <div class="drawer-header">
+      <h2>操作パネル</h2>
+      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+    </div>
+    <div class="drawer-tabs">
+      <button class="dtab active" id="dt-place" onclick="switchDTab('place')">📍 配置</button>
+      <button class="dtab" id="dt-reserve" onclick="switchDTab('reserve')">📅 予約</button>
+      <button class="dtab" id="dt-machines" onclick="switchDTab('machines')">🏭 試験機</button>
+      <button class="dtab" id="dt-backup" onclick="switchDTab('backup')">💾 バックアップ</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <!-- 配置タブ -->
+      <div id="tab-place">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--text2);">試験機を選択</label>
+          <select id="sel-machine" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 9px;border-radius:5px;font-size:12px;outline:none;margin-top:4px;" onchange="selectMachine(this.value)">
+            <option value="">-- 試験機を選択 --</option>
+          </select>
+        </div>
+        <div class="fg"><label>試験体名 / ID</label><input type="text" id="input-name" placeholder="例：SUS304-A1"></div>
+        <div class="fg"><label>担当者名</label><input type="text" id="input-owner" placeholder="例：山田 太郎"></div>
+        <div class="fg"><label>試験開始日</label><input type="date" id="input-start"></div>
+        <div class="fg"><label>終了予定日</label><input type="date" id="input-end"></div>
+        <!-- 積算時間管理 -->
+        <div style="background:var(--bg3);border-radius:6px;padding:10px;margin-bottom:12px;border:1px solid var(--border);">
+          <div style="font-size:10px;color:var(--accent);margin-bottom:8px;font-family:'Rajdhani',sans-serif;letter-spacing:1px;">⏱ 積算時間管理</div>
+          <div class="fg" style="margin-bottom:8px;">
+            <label>入れた時の積算運転時間（h）</label>
+            <input type="number" id="input-insert-hours" placeholder="例：1250" min="0" step="0.1" oninput="calcExtractTime()">
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div class="fg" style="flex:1;margin-bottom:0;">
+              <label>試験時間（h）</label>
+              <input type="number" id="input-test-hours" placeholder="例：96" min="0" step="0.5" oninput="calcExtractTime()">
+            </div>
+            <div class="fg" style="flex:1;margin-bottom:0;">
+              <label>または日数（日）</label>
+              <input type="number" id="input-test-days" placeholder="例：4" min="0" step="0.5" oninput="calcExtractTimeFromDays()">
+            </div>
+          </div>
+          <div id="extract-preview" style="display:none;padding:8px;background:rgba(0,212,255,.07);border-radius:4px;border:1px solid rgba(0,212,255,.2);font-size:11px;">
+            <div style="color:var(--text2);">取り出し積算時間：<span id="extract-hours-val" style="color:var(--accent);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;">—</span> h</div>
+            <div style="color:var(--text2);margin-top:3px;">取り出し予定：<span id="extract-time-val" style="color:var(--ok);font-weight:500;">—</span></div>
+          </div>
+        </div>
+        <button class="btn-p" id="btn-place" onclick="startPlacing(false)">配置するスロットを選択 →</button>
+        <div class="hint-box place" id="hint-place">🎯 スロットをドラッグして範囲を選択<br><button onclick="if(currentMachineId){openChamberModal(currentMachineId);}" style="margin-top:6px;padding:5px 12px;background:rgba(0,212,255,.15);border:1px solid var(--accent);color:var(--accent);border-radius:5px;font-size:11px;cursor:pointer;">🔲 全画面で配置する</button></div>
+        <button class="btn-cancel" id="cancel-place" onclick="cancelPlacing()">キャンセル</button>
+
+        <!-- 槽グリッド -->
+        <div id="chamber-area"></div>
+
+        <!-- 試験体一覧 -->
+        <div style="margin-top:14px;">
+          <div style="font-size:10px;color:var(--text2);letter-spacing:1px;margin-bottom:8px;">📋 試験体一覧</div>
+          <div class="spec-list" id="spec-list"><div style="font-size:11px;color:var(--text2);">なし</div></div>
+        </div>
+      </div>
+
+      <!-- 予約タブ -->
+      <div id="tab-reserve" style="display:none">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:10px;color:var(--text2);">試験機を選択</label>
+          <select id="sel-machine-r" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 9px;border-radius:5px;font-size:12px;outline:none;margin-top:4px;" onchange="selectMachine(this.value)">
+            <option value="">-- 試験機を選択 --</option>
+          </select>
+        </div>
+        <div class="fg"><label>予約名 / 試験体名</label><input type="text" id="res-name" placeholder="例：次期試験A"></div>
+        <div class="fg"><label>担当者名</label><input type="text" id="res-owner" placeholder="例：鈴木 花子"></div>
+        <div class="fg"><label>予約開始日</label><input type="date" id="res-start"></div>
+        <div class="fg"><label>予約終了日</label><input type="date" id="res-end"></div>
+        <button class="btn-r" id="btn-reserve" onclick="startPlacing(true)">予約スロットを選択 →</button>
+        <div class="hint-box reserve" id="hint-reserve">📅 スロットをドラッグして範囲を選択</div>
+        <button class="btn-cancel" id="cancel-reserve" onclick="cancelPlacing()">キャンセル</button>
+        <div id="chamber-area-r"></div>
+      </div>
+
+      <!-- 試験機管理タブ -->
+      <div id="tab-machines" style="display:none">
+        <div class="machine-list" id="machine-list"></div>
+        <button class="btn-p" onclick="openAddMachine()">＋ 試験機を追加</button>
+        <!-- 積算時間更新パネル -->
+        <div id="hours-panel" style="display:none;margin-top:14px;">
+          <div style="background:linear-gradient(135deg,rgba(0,85,255,.1),rgba(0,212,255,.1));border:1px solid var(--accent2);border-radius:12px;padding:18px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:rgba(0,212,255,.15);display:flex;align-items:center;justify-content:center;font-size:16px;">⏱</div>
+              <div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:14px;color:var(--accent);letter-spacing:1px;">積算運転時間を更新</div>
+                <div style="font-size:11px;color:var(--text2);" id="hours-machine-name">—</div>
+              </div>
+            </div>
+            <div class="fg">
+              <label>現在の積算運転時間（h）</label>
+              <input type="number" id="hours-input" placeholder="例：1250" min="0" step="0.1"
+                style="font-size:20px!important;padding:12px!important;font-family:'Rajdhani',sans-serif;font-weight:600;color:var(--accent);">
+            </div>
+            <div style="font-size:10px;color:var(--text2);margin-bottom:12px;">
+              ※ 試験機の積算時計の値をそのまま入力してください
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+              <button onclick="setMachineRunning(true)" id="btn-running"
+                style="flex:1;padding:12px;border:2px solid var(--ok);background:rgba(0,230,118,.1);color:var(--ok);border-radius:8px;cursor:pointer;font-size:13px;font-family:'Noto Sans JP',sans-serif;">
+                ▶ 稼働中
+              </button>
+              <button onclick="setMachineRunning(false)" id="btn-stopped"
+                style="flex:1;padding:12px;border:2px solid var(--border);background:transparent;color:var(--text2);border-radius:8px;cursor:pointer;font-size:13px;font-family:'Noto Sans JP',sans-serif;">
+                ⏸ 停止中
+              </button>
+            </div>
+            <button class="btn-p" onclick="updateMachineHours()" style="margin-bottom:8px;">✓ 更新する</button>
+            <button onclick="document.getElementById('hours-panel').style.display='none'"
+              style="width:100%;padding:10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:12px;cursor:pointer;">
+              キャンセル
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- バックアップタブ -->
+      <div id="tab-backup" style="display:none">
+        <!-- パスワード変更 -->
+        <div style="background:var(--bg3);border-radius:8px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
+          <div style="font-size:12px;color:var(--accent);font-family:'Rajdhani',sans-serif;letter-spacing:1px;margin-bottom:10px;">🔐 パスワード変更</div>
+          <div class="fg"><label>新しいパスワード</label><input type="password" id="new-pw" placeholder="新しいパスワードを入力"></div>
+          <div class="fg"><label>確認（もう一度入力）</label><input type="password" id="new-pw2" placeholder="もう一度入力"></div>
+          <button class="btn-p" onclick="changePw()">パスワードを変更する</button>
+          <div id="pw-change-msg" style="display:none;margin-top:8px;font-size:11px;text-align:center;"></div>
+          <div style="font-size:10px;color:var(--text2);margin-top:8px;line-height:1.6;">
+            ⚠ 変更後は新しいパスワードをHTMLファイルに保存する必要があります。<br>
+            変更後に「HTMLとして保存」してGitHubに再アップしてください。
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:12px;line-height:1.7;">
+          試験機データはSupabaseに自動保存されています。<br>
+          追加でローカルバックアップを取ることができます。
+        </div>
+        <div class="backup-section">
+          <h4>📥 バックアップをダウンロード</h4>
+          <button class="btn-backup" onclick="downloadBackup()">JSONファイルをダウンロード</button>
+          <div style="font-size:10px;color:var(--text2);">すべてのデータをJSONで保存します</div>
+        </div>
+        <div class="backup-section" style="margin-top:10px;">
+          <h4>📤 バックアップから復元</h4>
+          <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+          <button class="btn-backup" onclick="document.getElementById('restore-file').click()">JSONファイルから復元</button>
+          <div style="font-size:10px;color:var(--warn);margin-top:4px;">⚠️ 現在のデータに上書きされます</div>
+        </div>
+        <div id="backup-msg" style="display:none;margin-top:8px;font-size:11px;color:var(--ok);text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 試験機追加モーダル -->
+<div class="modal-overlay" id="machine-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('machine-modal').classList.remove('open')">✕</button>
+    <h2>試験機を追加</h2>
+    <div class="fg"><label>試験機名称</label><input type="text" id="m-name" placeholder="例：SST-01"></div>
+    <div class="fg"><label>列数（横方向）</label><input type="number" id="m-cols" value="14" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>行数（奥行方向）</label><input type="number" id="m-rows" value="6" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可列 開始</label><input type="number" id="m-bcol-start" value="6" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可列 終了</label><input type="number" id="m-bcol-end" value="9" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可行 開始</label><input type="number" id="m-brow-start" value="3" min="1" oninput="updateCalc()"></div>
+    <div class="fg"><label>噴霧塔：不可行 終了</label><input type="number" id="m-brow-end" value="4" min="1" oninput="updateCalc()"></div>
+    <div class="m-calc" id="m-calc"></div>
+    <button class="btn-p" onclick="addMachine()">追加する</button>
+  </div>
+</div>
+
+<!-- ══ 槽ビュー全画面モーダル ══ -->
+<div class="fullscreen-modal" id="chamber-modal">
+  <div class="fm-header">
+    <div>
+      <div class="fm-title" id="cm-title">試験槽ビュー</div>
+      <!-- 凡例（小） -->
+      <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text2);"><div style="width:8px;height:8px;background:#0c1828;border:1px solid #1a3355;border-radius:1px;"></div>空き</div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text2);"><div style="width:8px;height:8px;background:rgba(0,90,210,.5);border:1px solid var(--accent);border-radius:1px;"></div>試験中</div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text2);"><div style="width:8px;height:8px;background:rgba(168,85,247,.3);border:1px dashed var(--reserve);border-radius:1px;"></div>予約</div>
+        <div style="display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text2);"><div style="width:8px;height:8px;background:repeating-linear-gradient(45deg,#0d0f14 0,#0d0f14 2px,#111520 2px,#111520 4px);border-radius:1px;"></div>配置不可</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:11px;color:var(--text2);text-align:right;" id="cm-stats"></div>
+      <button class="fm-close" onclick="closeChamberModal()">✕</button>
+    </div>
+  </div>
+  <div class="fm-body">
+    <!-- グリッド（画面いっぱい） -->
+    <div id="cm-grid-outer" style="flex:1;background:#030810;border:1px solid var(--border);border-radius:8px;padding:8px;overflow:auto;-webkit-overflow-scrolling:touch;min-height:0;"></div>
+    <!-- 配置フォーム（配置モード時のみ表示） -->
+    <div id="cm-place-form" style="display:none;margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-family:Rajdhani,sans-serif;font-size:14px;color:var(--accent);margin-bottom:12px;">📍 試験体を配置</div>
+      <div class="fg"><label>試験体名 / ID</label><input type="text" id="cm-name" placeholder="例：SUS304-A1"></div>
+      <div class="fg"><label>担当者名</label><input type="text" id="cm-owner" placeholder="例：山田 太郎"></div>
+      <div class="fg"><label>試験開始日</label><input type="date" id="cm-start"></div>
+      <div class="fg"><label>終了予定日</label><input type="date" id="cm-end"></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:10px;margin-bottom:12px;border:1px solid var(--border);">
+        <div style="font-size:10px;color:var(--accent);margin-bottom:8px;font-family:Rajdhani,sans-serif;">⏱ 積算時間管理</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <div class="fg" style="flex:1;margin-bottom:0;"><label>入れた時の積算時間（h）</label><input type="number" id="cm-insert-h" placeholder="例：1250" min="0" step="0.1" oninput="cmCalcExtract()"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div class="fg" style="flex:1;margin-bottom:0;"><label>試験時間（h）</label><input type="number" id="cm-test-h" placeholder="例：96" min="0" step="0.5" oninput="cmCalcExtract()"></div>
+          <div class="fg" style="flex:1;margin-bottom:0;"><label>または日数</label><input type="number" id="cm-test-d" placeholder="例：4" min="0" step="0.5" oninput="cmCalcExtractD()"></div>
+        </div>
+        <div id="cm-extract-preview" style="display:none;margin-top:8px;padding:8px;background:rgba(0,212,255,.07);border-radius:5px;border:1px solid rgba(0,212,255,.2);font-size:11px;">
+          取り出し積算：<span id="cm-extract-h" style="color:var(--accent);font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;">—</span> h ／ 予定：<span id="cm-extract-dt" style="color:var(--ok);">—</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--accent);text-align:center;padding:8px;border:1px dashed var(--accent);border-radius:5px;margin-bottom:8px;">🎯 スロットをドラッグして配置範囲を選択</div>
+      <button onclick="cancelChamberPlace()" style="width:100%;padding:9px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;cursor:pointer;">キャンセル</button>
+    </div>
+    <button id="cm-start-place-btn" onclick="startChamberPlace()" class="btn-p" style="margin-top:12px;display:none;">＋ この槽に試験体を配置する</button>
+  </div>
+</div>
+
+<!-- ══ 試験体一覧全画面モーダル ══ -->
+<div class="fullscreen-modal" id="specimens-modal">
+  <div class="fm-header">
+    <div>
+      <div class="fm-title" id="sm-title">試験体一覧</div>
+      <div style="font-size:10px;color:var(--text2);" id="sm-subtitle"></div>
+    </div>
+    <button class="fm-close" onclick="closeSpecimensModal()">✕ 閉じる</button>
+  </div>
+  <div class="fm-body" id="sm-body"></div>
+</div>
+
+<div id="sync-toast">🔄 同期しました</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-row" id="tt-owner"></div>
+  <div class="tt-row" id="tt-pos"></div>
+  <div class="tt-row" id="tt-start"></div>
+  <div class="tt-row" id="tt-end"></div>
+  <div class="tt-row" id="tt-remain"></div>
+</div>
+
+<script>
+// ══ パスワード認証 ══
+// パスワードのSHA-256ハッシュ値（デフォルト: saltspray）
+// 変更したい場合はこのハッシュ値を書き換えてください
+const PW_HASH = '8281e50c069044692b497f1a4653077b10a114a60c0b73734fb652a5a7cba6b1';
+// ↑ 'saltspray' のSHA-256ハッシュ（正しい値）
+
+async function hashPassword(pw){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function doLogin(){
+  const pw = document.getElementById('login-input').value;
+  if(!pw){ document.getElementById('login-error').style.display='block'; return; }
+  const hash = await hashPassword(pw);
+  if(hash === PW_HASH){
+    // ログイン成功
+    sessionStorage.setItem('sst_auth', hash);
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('login-error').style.display='none';
+  } else {
+    // ログイン失敗
+    document.getElementById('login-error').style.display='block';
+    document.getElementById('login-input').value='';
+    document.getElementById('login-input').focus();
+    // 入力欄を赤く点滅
+    const inp = document.getElementById('login-input');
+    inp.style.borderColor='var(--danger)';
+    setTimeout(()=>inp.style.borderColor='var(--border)',1000);
+  }
+}
+
+function togglePw(){
+  const inp = document.getElementById('login-input');
+  const eye = document.getElementById('pw-eye');
+  if(inp.type==='password'){ inp.type='text'; eye.textContent='🙈'; }
+  else { inp.type='password'; eye.textContent='👁'; }
+}
+
+function checkAuth(){
+  const saved = sessionStorage.getItem('sst_auth');
+  if(saved === PW_HASH){
+    document.getElementById('login-screen').style.display='none';
+  }
+  // ログインしていない場合はログイン画面を表示したまま
+}
+
+// ══ 定数 ══
+const SUPABASE_URL='https://relijzngeyvlgbjdnfhi.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlbGlqem5nZXl2bGdiamRuZmhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1ODYyOTYsImV4cCI6MjA5MDE2MjI5Nn0.39QYAmkR3HQlyG6dC1nd8mKYQlmEDw-MoT4uV3D3nng';
+const SB_HEADERS={'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json'};
+
+// 担当者カラーパレット（20色）
+const OWNER_PALETTE=[
+  ['rgba(0,100,230,.80)','rgba(0,200,255,.95)'],    // 青
+  ['rgba(0,170,70,.80)','rgba(0,240,120,.95)'],     // 緑
+  ['rgba(200,70,10,.80)','rgba(255,150,60,.95)'],   // オレンジ
+  ['rgba(150,20,170,.80)','rgba(220,100,240,.95)'], // 紫
+  ['rgba(200,20,40,.80)','rgba(255,80,100,.95)'],   // 赤
+  ['rgba(0,150,150,.80)','rgba(0,220,220,.95)'],    // シアン
+  ['rgba(170,140,0,.80)','rgba(240,210,0,.95)'],    // 黄
+  ['rgba(30,70,200,.80)','rgba(100,150,255,.95)'],  // インディゴ
+  ['rgba(180,40,110,.80)','rgba(250,100,170,.95)'], // ピンク
+  ['rgba(70,150,0,.80)','rgba(130,220,0,.95)'],     // ライム
+  ['rgba(200,110,0,.80)','rgba(255,185,50,.95)'],   // アンバー
+  ['rgba(0,90,180,.80)','rgba(60,170,255,.95)'],    // ライトブルー
+  ['rgba(120,0,120,.80)','rgba(210,80,210,.95)'],   // マゼンタ
+  ['rgba(0,120,90,.80)','rgba(0,210,160,.95)'],     // エメラルド
+  ['rgba(140,90,0,.80)','rgba(230,170,80,.95)'],    // ブラウン
+  ['rgba(0,70,140,.80)','rgba(50,150,230,.95)'],    // ネイビー
+  ['rgba(90,0,180,.80)','rgba(170,80,255,.95)'],    // バイオレット
+  ['rgba(180,90,40,.80)','rgba(255,170,100,.95)'],  // サーモン
+  ['rgba(40,140,80,.80)','rgba(80,230,140,.95)'],   // ミント
+  ['rgba(120,50,0,.80)','rgba(210,110,60,.95)'],    // テラコッタ
+];
+const RESERVE_BG='rgba(130,50,220,.35)';
+const RESERVE_BC='rgba(168,85,247,.8)';
+
+const ownerColorMap={};let ownerColorIdx=0;
+function getOwnerColor(owner){
+  const key=(owner||'').trim()||'未設定';
+  if(!(key in ownerColorMap)){ownerColorMap[key]=ownerColorIdx%OWNER_PALETTE.length;ownerColorIdx++;}
+  return OWNER_PALETTE[ownerColorMap[key]];
+}
+function activeColor(days,owner){
+  if(days<0)return['rgba(255,61,87,.45)','rgba(255,100,100,.85)'];
+  if(days<=3)return['rgba(200,100,0,.45)','rgba(255,160,0,.85)'];
+  return getOwnerColor(owner);
+}
+
+// ══ 状態 ══
+let machines=[],currentMachineId=null,pendingSpecimen=null,isReserveMode=false,nextColor=0;
+let isSaving=false,lastUpdatedAt=null,pollingTimer=null;
+
+// ══ Supabase（fetch APIで直接通信・SDK不要） ══
+function setConnStatus(c){
+  const el=document.getElementById('conn-status');if(el){el.textContent=c?'🟢 クラウド同期中':'🔴 切断中';el.style.color=c?'var(--ok)':'var(--danger)';}
+  const sp=document.getElementById('conn-status-sp');if(sp){sp.textContent=c?'🟢 同期中':'🔴 切断中';sp.style.color=c?'var(--ok)':'var(--danger)';}
+}
+function showSyncToast(){
+  const t=document.getElementById('sync-toast');if(!t)return;
+  t.style.opacity='1';clearTimeout(t._t);
+  t._t=setTimeout(()=>t.style.opacity='0',1800);
+}
+function applyData(d){
+  machines=JSON.parse(JSON.stringify(d.machines||[]));
+  nextColor=d.next_color||0;
+  Object.keys(ownerColorMap).forEach(k=>delete ownerColorMap[k]);
+  ownerColorIdx=0;
+  machines.forEach(m=>(m.specimens||[]).forEach(sp=>{getOwnerColor(sp.owner||'未設定');}));
+  localStorage.setItem('sst_v6',JSON.stringify({machines,nextColor}));
+  renderAll();
+}
+async function sbGet(){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_data?id=eq.main&select=machines,next_color,updated_at',{headers:SB_HEADERS});
+  if(!res.ok)throw new Error('GET '+res.status);
+  const arr=await res.json();
+  if(!arr||!arr.length)throw new Error('データなし');
+  return arr[0];
+}
+async function sbGetTime(){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_data?id=eq.main&select=updated_at',{headers:SB_HEADERS});
+  if(!res.ok)return null;
+  const arr=await res.json();
+  return arr&&arr.length?arr[0].updated_at:null;
+}
+async function sbPatch(body){
+  const res=await fetch(SUPABASE_URL+'/rest/v1/app_data?id=eq.main',{
+    method:'PATCH',
+    headers:SB_HEADERS,
+    body:JSON.stringify(body)
+  });
+  if(!res.ok){
+    const errText=await res.text().catch(()=>'');
+    throw new Error('PATCH '+res.status+' '+errText);
+  }
+}
+async function loadFromSupabase(){
+  try{
+    setConnStatus(false);
+    const d=await sbGet();
+    lastUpdatedAt=d.updated_at;
+    applyData(d);
+    setConnStatus(true);
+  }catch(e){
+    console.error('Supabase読み込みエラー:',e.message);
+    setConnStatus(false);
+    load();
+    renderAll();
+  }
+}
+async function pollForUpdates(){
+  if(isSaving)return; // 保存中はスキップ
+  try{
+    const t=await sbGetTime();
+    if(!t)return;
+    if(lastUpdatedAt&&t!==lastUpdatedAt){
+      const d=await sbGet();
+      lastUpdatedAt=d.updated_at;
+      applyData(d);
+      showSyncToast();
+    }else if(!lastUpdatedAt){lastUpdatedAt=t;}
+  }catch(e){}
+}
+function startPolling(){
+  if(pollingTimer)clearInterval(pollingTimer);
+  pollingTimer=setInterval(pollForUpdates,3000);
+  setConnStatus(true);
+}
+const save=async()=>{
+  // まずローカルに保存（確実）
+  const data={machines,nextColor};
+  localStorage.setItem('sst_v6',JSON.stringify(data));
+  // Supabaseに保存
+  try{
+    isSaving=true;
+    const newTime=new Date().toISOString();
+    const machinesClean=JSON.parse(JSON.stringify(machines));
+    await sbPatch({machines:machinesClean,next_color:nextColor,updated_at:newTime});
+    lastUpdatedAt=newTime;
+    console.log('Supabase保存成功');
+  }catch(e){
+    console.error('Supabase保存エラー:',e.message);
+    // エラーでも3秒後に再試行
+    setTimeout(async()=>{
+      try{
+        const t=new Date().toISOString();
+        await sbPatch({machines:JSON.parse(JSON.stringify(machines)),next_color:nextColor,updated_at:t});
+        lastUpdatedAt=t;
+        console.log('再試行保存成功');
+      }catch(e2){console.error('再試行失敗:',e2.message);}
+    },3000);
+  }finally{
+    setTimeout(()=>isSaving=false,1000);
+  }
+};
+const load=()=>{
+  try{const d=localStorage.getItem('sst_v6');if(d){const p=JSON.parse(d);machines=p.machines||[];nextColor=p.nextColor||0;}}catch(e){}
+};
+
+// ══ ヘルパー ══
+const today=()=>new Date().toISOString().split('T')[0];
+const daysLeft=end=>end?Math.ceil((new Date(end)-new Date().setHours(0,0,0,0))/86400000):999;
+const statusCls=d=>d<0?'danger':d<=3?'warn':'';
+const dayLbl=d=>d<0?`${Math.abs(d)}日超過`:d===0?'本日終了':`残り${d}日`;
+const getMachine=()=>machines.find(m=>m.id===currentMachineId);
+const isBlocked=(m,r,c)=>c>=(m.bColStart-1)&&c<=(m.bColEnd-1)&&r>=(m.bRowStart-1)&&r<=(m.bRowEnd-1);
+const countValid=m=>{let v=0;for(let r=0;r<m.rows;r++)for(let c=0;c<m.cols;c++)if(!isBlocked(m,r,c))v++;return v;};
+function buildMap(m){
+  const map=Array.from({length:m.rows},()=>Array(m.cols).fill(null));
+  (m.specimens||[]).forEach(sp=>{
+    for(let dr=0;dr<(sp.spanRows||1);dr++)for(let dc=0;dc<(sp.spanCols||1);dc++){
+      const rr=sp.row+dr,cc=sp.col+dc;
+      if(rr<m.rows&&cc<m.cols&&map[rr][cc]===null)map[rr][cc]=sp.id;
+    }
+  });return map;
+}
+function canPlace(m,map,row,col,sR,sC){
+  for(let dr=0;dr<sR;dr++)for(let dc=0;dc<sC;dc++){
+    const rr=row+dr,cc=col+dc;
+    if(rr>=m.rows||cc>=m.cols||isBlocked(m,rr,cc)||map[rr][cc]!==null)return false;
+  }return true;
+}
+
+// ══ ドロワー ══
+function openDrawer(){document.getElementById('drawer').classList.add('open');renderChamberArea();renderSpecList();renderMachineList();}
+function closeDrawer(){document.getElementById('drawer').classList.remove('open');cancelPlacing();}
+function switchDTab(tab){
+  ['place','reserve','machines','backup'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+    const el=document.getElementById('dt-'+t);
+    el.className='dtab'+(t===tab?(tab==='reserve'?' active-r':' active'):'');
+  });
+  if(tab==='place'||tab==='reserve'){renderChamberArea();}
+}
+
+// ══ 試験機選択セレクト更新 ══
+function updateMachineSelects(){
+  ['sel-machine','sel-machine-r'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const cur=sel.value;
+    sel.innerHTML='<option value="">-- 試験機を選択 --</option>';
+    machines.forEach(m=>{
+      const opt=document.createElement('option');
+      opt.value=m.id;opt.textContent=m.name;
+      if(m.id===currentMachineId)opt.selected=true;
+      sel.appendChild(opt);
+    });
+    if(cur)sel.value=cur;
+  });
+}
+
+// ══ 全体描画 ══
+function renderAll(){
+  renderBoard();
+  updateMachineSelects();
+  if(currentMachineId&&document.getElementById('drawer').classList.contains('open')){
+    renderChamberArea();renderSpecList();
+  }
+  renderMachineList();
+}
+
+// ══ 掲示板 ══
+function renderBoard(){
+  const totalValid=machines.reduce((s,m)=>s+countValid(m),0);
+  const totalUsed=machines.reduce((s,m)=>(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0)+s,0);
+  const totalFree=totalValid-totalUsed;
+  const util=totalValid?Math.round(totalUsed/totalValid*100):0;
+  document.getElementById('h-machines').textContent=machines.length;
+  document.getElementById('h-free').textContent=totalFree;
+  document.getElementById('h-util').textContent=util+'%';
+  document.getElementById('board-free-num').textContent=totalFree;
+  // スマホ用ヘッダーも更新
+  const spFree=document.getElementById('h-free-sp');if(spFree)spFree.textContent=totalFree;
+
+  // 将来予測
+  const freeingSoon=[];
+  machines.forEach(m=>(m.specimens||[]).filter(s=>!s.isReserve).forEach(sp=>freeingSoon.push({days:daysLeft(sp.endDate),slots:(sp.spanCols||1)*(sp.spanRows||1)})));
+  const brackets=[{label:'7日以内に空く予定',max:7},{label:'14日以内',max:14},{label:'30日以内',max:30}];
+  const fr=document.getElementById('future-rows');fr.innerHTML='';
+  brackets.forEach(b=>{
+    const cnt=freeingSoon.filter(s=>s.days>=0&&s.days<=b.max).reduce((a,s)=>a+s.slots,0);
+    const pct=totalValid?Math.min(100,Math.round(cnt/totalValid*100)):0;
+    const div=document.createElement('div');div.className='future-row';
+    div.innerHTML=`<span class="future-label">${b.label}</span><div class="future-bar-wrap"><div class="future-bar" style="width:${pct}%"></div></div><span class="future-count">+${cnt}スロット</span>`;
+    fr.appendChild(div);
+  });
+
+  // まもなく終了
+  const upcoming=[];
+  machines.forEach(m=>(m.specimens||[]).filter(s=>!s.isReserve).forEach(sp=>{
+    const d=daysLeft(sp.endDate);
+    // 取り出し積算時間チェック
+    let extractSoon=false;
+    if(sp.extractHours!=null){
+      const info=calcExtractDateTime(m,sp.extractHours);
+      if(info&&info.remainingH<=24*7)extractSoon=true; // 7日以内
+    }
+    if(d<=7||extractSoon)upcoming.push({...sp,days:d,machineName:m.name,machine:m});
+  }));
+  upcoming.sort((a,b)=>a.days-b.days);
+  const uw=document.getElementById('upcoming-wrap');
+  const ui=document.getElementById('upcoming-items');
+  if(upcoming.length===0){uw.style.display='none';}
+  else{uw.style.display='block';ui.innerHTML=upcoming.map(sp=>`<div class="upcoming-chip ${statusCls(sp.days)}">${sp.name}（${sp.machineName}）${dayLbl(sp.days)}</div>`).join('');}
+
+  // 試験機カード
+  const grid=document.getElementById('board-machines');
+  if(machines.length===0){grid.innerHTML='<div style="color:var(--text2);font-size:13px;padding:40px;grid-column:1/-1;text-align:center;">試験機がまだ登録されていません<br><br><button onclick="openDrawer();switchDTab(\'machines\')" style="padding:8px 16px;background:rgba(0,212,255,.1);border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer;font-size:12px;">＋ 試験機を追加</button></div>';return;}
+  grid.innerHTML='';
+  machines.forEach(m=>{
+    const valid=countValid(m);
+    const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+    const free=valid-used;
+    const util=valid?Math.round(used/valid*100):0;
+    const fc=free===0?'empty':free<=3?'low':'';
+    const card=document.createElement('div');card.className='machine-card';
+    // ミニグリッド
+    const map=buildMap(m);
+    let miniHtml=`<div class="mc-mini-grid" style="grid-template-columns:repeat(${m.cols},13px)">`;
+    for(let r=0;r<m.rows;r++)for(let c=0;c<m.cols;c++){
+      if(isBlocked(m,r,c)){miniHtml+='<div class="ms b"></div>';continue;}
+      const sid=map[r][c];
+      if(!sid){miniHtml+='<div class="ms e"></div>';}
+      else{const sp=(m.specimens||[]).find(s=>s.id===sid);if(sp.isReserve){miniHtml+='<div class="ms r"></div>';}else{const[bg]=getOwnerColor(sp.owner);miniHtml+=`<div class="ms u" style="background:${bg}"></div>`;}}
+    }
+    miniHtml+='</div>';
+    card.innerHTML=`
+      <!-- 試験機名 + 稼働状態 -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div class="mc-name">${m.name}</div>
+        <button onclick="event.stopPropagation();openDrawer();switchDTab('machines');setTimeout(()=>openHoursPanel('${m.id}'),100);"
+          style="padding:5px 12px;background:${m.isRunning!==false?'rgba(0,230,118,.15)':'rgba(255,152,0,.15)'};border:1px solid ${m.isRunning!==false?'var(--ok)':'var(--warn)'};color:${m.isRunning!==false?'var(--ok)':'var(--warn)'};border-radius:20px;font-size:11px;cursor:pointer;white-space:nowrap;">
+          ${m.isRunning!==false?'● 稼働中':'⏸ 停止中'}
+        </button>
+      </div>
+
+      <!-- 積算時間（大きく表示） -->
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;background:var(--bg3);border-radius:8px;padding:10px 14px;margin-bottom:10px;border:1px solid var(--border);">
+        <div>
+          <div style="font-size:10px;color:var(--text2);margin-bottom:2px;">現在の積算運転時間</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:32px;font-weight:700;line-height:1;color:var(--accent);">${getCurrentHours(m).toFixed(1)}<span style="font-size:14px;margin-left:3px;color:var(--text2);">h</span></div>
+        </div>
+        <button onclick="event.stopPropagation();openDrawer();switchDTab('machines');setTimeout(()=>openHoursPanel('${m.id}'),100);"
+          style="padding:8px 16px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;border-radius:8px;color:#fff;font-size:12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-weight:500;">
+          ⏱ 更新
+        </button>
+      </div>
+
+      <!-- 空きスロット + 稼働率 -->
+      <div class="mc-free-row" style="margin-bottom:6px;">
+        <div class="mc-free-num ${fc}">${free}</div>
+        <div class="mc-free-label">スロット空き</div>
+      </div>
+      <div class="mc-bar-wrap" style="margin-bottom:6px;"><div class="mc-bar ${fc}" style="width:${util}%"></div></div>
+      <div class="mc-stats" style="margin-bottom:8px;"><span>使用中：${used}</span><span>空き：${free}</span><span>稼働率：${util}%</span></div>
+
+      <!-- ミニグリッド -->
+      ${miniHtml}
+
+      <!-- まもなく取り出し警告 -->
+      ${(()=>{
+        const urgents=(m.specimens||[]).filter(s=>!s.isReserve&&s.insertHours!=null).map(s=>{
+          const prog=calcProgressInfo(m,s);
+          return prog?{name:s.name,prog}:null;
+        }).filter(Boolean).filter(x=>x.prog.remainingH!=null&&x.prog.remainingH<=48).sort((a,b)=>a.prog.remainingH-b.prog.remainingH);
+        if(!urgents.length)return '';
+        return '<div style="margin-top:8px;padding:8px 10px;background:rgba(255,152,0,.08);border:1px solid rgba(255,152,0,.25);border-radius:6px;">'
+          +'<div style="font-size:10px;color:var(--warn);font-weight:500;margin-bottom:5px;">⚠ まもなく取り出し</div>'
+          +urgents.map(x=>`<div style="font-size:11px;color:var(--text2);display:flex;justify-content:space-between;padding:2px 0;"><span>${x.name}</span><span style="color:${x.prog.overdue?'var(--danger)':'var(--warn)'};">${x.prog.overdue?'⚠ 超過':x.prog.remainingStr}</span></div>`).join('')
+          +'</div>';
+      })()}
+    `;
+    card.onclick=()=>openChamberModal(m.id);
+    grid.appendChild(card);
+  });
+}
+
+// ══ 槽グリッド描画 ══
+function renderChamberArea(){
+  const areaIds=['chamber-area','chamber-area-r'];
+  areaIds.forEach(areaId=>{
+    const area=document.getElementById(areaId);if(!area)return;
+    if(!currentMachineId){area.innerHTML='<div style="font-size:11px;color:var(--text2);padding:10px;">試験機を選択してください</div>';return;}
+    const m=getMachine();if(!m){area.innerHTML='';return;}
+    area.innerHTML='';
+    const wrap=document.createElement('div');wrap.className='chamber-wrap';
+    const title=document.createElement('div');title.className='chamber-title';title.textContent=`${m.name} 試験槽ビュー`;
+    const legend=document.createElement('div');legend.className='legend';
+    legend.innerHTML=`
+      <div class="legend-item"><div class="legend-dot" style="background:#0c1828;border:1px solid #1a3355"></div>空き</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(0,90,210,.5);border:1px solid var(--accent)"></div>試験中</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(168,85,247,.3);border:1px dashed var(--reserve)"></div>予約</div>
+      <div class="legend-item"><div class="legend-dot" style="background:repeating-linear-gradient(45deg,#0d0f14 0,#0d0f14 3px,#111520 3px,#111520 6px)"></div>配置不可</div>`;
+    wrap.appendChild(title);wrap.appendChild(legend);
+    const outer=document.createElement('div');outer.className='grid-outer';
+    // col labels
+    const clRow=document.createElement('div');clRow.style.cssText=`display:flex;gap:2px;margin-left:20px;margin-bottom:2px;`;
+    for(let c=0;c<m.cols;c++){const l=document.createElement('div');l.style.cssText='width:48px;text-align:center;font-size:8px;color:var(--text2);opacity:.6;font-family:Rajdhani,sans-serif;';l.textContent=c+1;clRow.appendChild(l);}
+    outer.appendChild(clRow);
+    const gw=document.createElement('div');gw.style.cssText='display:flex;';
+    const rl=document.createElement('div');rl.style.cssText='display:flex;flex-direction:column;gap:2px;margin-right:3px;';
+    for(let r=0;r<m.rows;r++){const l=document.createElement('div');l.style.cssText='width:17px;height:48px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text2);opacity:.6;font-family:Rajdhani,sans-serif;';l.textContent=r+1;rl.appendChild(l);}
+    gw.appendChild(rl);
+    const gi=document.createElement('div');gi.className='grid-inner';
+    gi.style.cssText=`grid-template-columns:repeat(${m.cols},48px);grid-template-rows:repeat(${m.rows},48px);`;
+    const map=buildMap(m);
+    for(let r=0;r<m.rows;r++)for(let c=0;c<m.cols;c++){
+      const el=document.createElement('div');el.className='slot';el.dataset.row=r;el.dataset.col=c;
+      if(isBlocked(m,r,c)){el.classList.add('blocked');}
+      else{
+        const sid=map[r][c];
+        if(!sid){
+          el.classList.add('empty');
+          if(pendingSpecimen){
+            el.classList.add('placing');
+            el.addEventListener('mousedown',e=>onSlotMouseDown(e,r,c));
+            el.addEventListener('mouseenter',()=>onSlotMouseEnter(r,c));
+          }
+          el.innerHTML=`<span class="slot-coord">${c+1}-${r+1}</span>`;
+        }else{
+          const sp=(m.specimens||[]).find(s=>s.id===sid);
+          const isOrigin=sp.row===r&&sp.col===c;
+          const isRight=c<sp.col+(sp.spanCols||1)-1;
+          const isBottom=r<sp.row+(sp.spanRows||1)-1;
+          if(sp.isReserve){
+            el.classList.add('reserved');el.style.background=RESERVE_BG;el.style.borderColor=RESERVE_BC;
+            if(isRight)el.style.borderRightColor='transparent';
+            if(isBottom)el.style.borderBottomColor='transparent';
+            el.innerHTML=isOrigin?`<span class="slot-coord">${c+1}-${r+1}</span><div class="slot-label">${sp.name}</div><div class="slot-owner">${sp.owner||''}</div>`:`<span class="slot-coord" style="opacity:.15">${c+1}-${r+1}</span>`;
+          }else{
+            const days=daysLeft(sp.endDate),sc=statusCls(days);
+            const[bg,bc]=activeColor(days,sp.owner);
+            el.classList.add('occupied');
+            if(sc==='warn')el.classList.add('s-warn');
+            if(sc==='danger')el.classList.add('s-danger');
+            el.style.background=bg;
+            el.style.borderColor=bc;
+            el.style.setProperty('background',bg,'important');
+            if(isRight)el.style.borderRightColor='transparent';
+            if(isBottom)el.style.borderBottomColor='transparent';
+            el.innerHTML=isOrigin?`<span class="slot-coord">${c+1}-${r+1}</span><div class="slot-label">${sp.name}</div><div class="slot-owner">${sp.owner||''}</div><div class="slot-days">${days<0?'超過':days===0?'本日':days+'d'}</div>`:`<span class="slot-coord" style="opacity:.15">${c+1}-${r+1}</span>`;
+            el.addEventListener('mouseenter',e=>showTooltip(e,sp));
+            el.addEventListener('mousemove',moveTooltip);
+            el.addEventListener('mouseleave',hideTooltip);
+          }
+        }
+      }
+      gi.appendChild(el);
+    }
+    gw.appendChild(gi);outer.appendChild(gw);wrap.appendChild(outer);area.appendChild(wrap);
+  });
+}
+
+// ══ ドラッグ選択 ══
+let dragStartRow=-1,dragStartCol=-1,dragEndRow=-1,dragEndCol=-1,isDragging=false;
+function getDragRange(){return{r1:Math.min(dragStartRow,dragEndRow),r2:Math.max(dragStartRow,dragEndRow),c1:Math.min(dragStartCol,dragEndCol),c2:Math.max(dragStartCol,dragEndCol)};}
+function onSlotMouseDown(e,row,col){if(!pendingSpecimen)return;e.preventDefault();isDragging=true;dragStartRow=dragEndRow=row;dragStartCol=dragEndCol=col;updateDragHL();}
+function onSlotMouseEnter(row,col){if(!isDragging||!pendingSpecimen)return;dragEndRow=row;dragEndCol=col;updateDragHL();}
+function onSlotMouseUp(){
+  if(!isDragging||!pendingSpecimen)return;isDragging=false;
+  const{r1,r2,c1,c2}=getDragRange();
+  pendingSpecimen.spanRows=r2-r1+1;pendingSpecimen.spanCols=c2-c1+1;
+  placeSpecimen(r1,c1);clearDragHL();
+}
+function updateDragHL(){
+  const m=getMachine();if(!m)return;
+  const map=buildMap(m);const{r1,r2,c1,c2}=getDragRange();
+  document.querySelectorAll('.slot.drag-hover,.slot.drag-invalid').forEach(el=>{el.classList.remove('drag-hover','drag-invalid');});
+  for(let r=r1;r<=r2;r++)for(let c=c1;c<=c2;c++){
+    const el=document.querySelector(`.slot[data-row="${r}"][data-col="${c}"]`);if(!el)continue;
+    if(isBlocked(m,r,c)||map[r][c]!==null)el.classList.add('drag-invalid');
+    else el.classList.add('drag-hover');
+  }
+}
+function clearDragHL(){document.querySelectorAll('.slot.drag-hover,.slot.drag-invalid').forEach(el=>{el.classList.remove('drag-hover','drag-invalid');});}
+document.addEventListener('mouseup',()=>{if(isDragging)onSlotMouseUp();});
+
+// ══ 配置 ══
+function selectMachine(id){
+  if(!id)return;
+  currentMachineId=id;
+  // セレクトを同期
+  ['sel-machine','sel-machine-r'].forEach(sid=>{const el=document.getElementById(sid);if(el)el.value=id;});
+  renderChamberArea();renderSpecList();
+}
+function startPlacing(isReserve){
+  if(!currentMachineId){alert('試験機を選択してください');return;}
+  isReserveMode=isReserve;
+  const name=document.getElementById(isReserve?'res-name':'input-name').value.trim();
+  const owner=document.getElementById(isReserve?'res-owner':'input-owner').value.trim();
+  const startDate=document.getElementById(isReserve?'res-start':'input-start').value;
+  const endDate=document.getElementById(isReserve?'res-end':'input-end').value;
+  if(!name||!startDate){alert('試験体名と開始日を入力してください');return;}
+  // 終了予定日は任意（積算時間で管理する場合は不要）
+  if(endDate&&endDate<startDate){alert('終了日が開始日より前です');return;}
+  const m=getMachine();
+  const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+  if(used>=countValid(m)){alert('空きスロットがありません');return;}
+  // 積算時間情報を取得（配置モードのみ）
+  let insertHours=null, testHours=null, extractHours=null;
+  if(!isReserve){
+    insertHours=parseFloat(document.getElementById('input-insert-hours').value)||null;
+    testHours=parseFloat(document.getElementById('input-test-hours').value)||null;
+    if(insertHours!==null&&testHours!==null) extractHours=Math.round((insertHours+testHours)*10)/10;
+  }
+  pendingSpecimen={name,owner,startDate,endDate,isReserve,insertHours,testHours,extractHours};
+  document.getElementById(isReserve?'hint-reserve':'hint-place').style.display='block';
+  document.getElementById(isReserve?'cancel-reserve':'cancel-place').classList.add('show');
+  document.getElementById(isReserve?'btn-reserve':'btn-place').disabled=true;
+  dragStartRow=dragStartCol=dragEndRow=dragEndCol=-1;
+  renderChamberArea();
+}
+function cancelPlacing(){
+  pendingSpecimen=null;isDragging=false;
+  ['hint-place','hint-reserve'].forEach(id=>document.getElementById(id).style.display='none');
+  ['cancel-place','cancel-reserve'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('btn-place').disabled=false;
+  document.getElementById('btn-reserve').disabled=false;
+  renderChamberArea();
+}
+function placeSpecimen(row,col){
+  if(!pendingSpecimen)return;
+  const m=getMachine();const map=buildMap(m);
+  const sR=pendingSpecimen.spanRows||1,sC=pendingSpecimen.spanCols||1;
+  if(!canPlace(m,map,row,col,sR,sC)){alert(`${sC}列×${sR}行分の空きがありません`);return;}
+  m.specimens=m.specimens||[];
+  const spData={...pendingSpecimen,id:Date.now().toString(),row,col};
+  // endDateが空の場合はnullに
+  if(!spData.endDate)spData.endDate=null;
+  m.specimens.push(spData);
+  if(!pendingSpecimen.isReserve)nextColor++;
+  pendingSpecimen=null;
+  ['hint-place','hint-reserve'].forEach(id=>document.getElementById(id).style.display='none');
+  ['cancel-place','cancel-reserve'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  document.getElementById('btn-place').disabled=false;
+  document.getElementById('btn-reserve').disabled=false;
+  document.getElementById('input-name').value='';
+  document.getElementById('res-name').value='';
+  save();renderAll();
+}
+
+// ══ 試験体リスト ══
+function renderSpecList(){
+  const m=getMachine();const el=document.getElementById('spec-list');
+  if(!m||!(m.specimens||[]).length){el.innerHTML='<div style="font-size:11px;color:var(--text2);">なし</div>';return;}
+  el.innerHTML=m.specimens.map(sp=>{
+    const isRes=sp.isReserve;const days=daysLeft(sp.endDate);const sc=isRes?'':statusCls(days);
+    const[,bc]=getOwnerColor(sp.owner);const bcol=isRes?'var(--reserve)':days<0?'rgba(255,100,100,.85)':days<=3?'rgba(255,160,0,.85)':bc;
+    // 積算時間による進捗表示
+    let extractInfo='';
+    if(!isRes&&sp.insertHours!=null){
+      const prog=calcProgressInfo(m,sp);
+      if(prog){
+        const overdue=prog.overdue;
+        const barColor=overdue?'var(--danger)':prog.progressPct>=80?'var(--warn)':'var(--accent2)';
+        const remainColor=overdue?'var(--danger)':prog.remainingH!=null&&prog.remainingH<=24?'var(--warn)':'var(--ok)';
+        extractInfo=`
+        <div style="margin-top:6px;padding:7px 9px;background:rgba(0,0,0,.2);border-radius:5px;border:1px solid rgba(255,255,255,.05);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-size:10px;color:var(--text2);">経過：<b style="color:var(--accent)">${prog.elapsedStr}</b></span>
+            ${prog.targetH!=null?`<span style="font-size:10px;color:var(--text2);">目標：${prog.targetH}h</span>`:''}
+          </div>
+          ${prog.progressPct!=null?`
+          <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-bottom:4px;">
+            <div style="height:100%;width:${prog.progressPct}%;background:${barColor};border-radius:3px;transition:width .5s;"></div>
+          </div>`:''}
+          ${prog.remainingH!=null?`
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:10px;color:${remainColor};">${overdue?'⚠ 超過：':'残り：'}<b>${overdue?formatHours(Math.abs(prog.remainingH)):prog.remainingStr}</b></span>
+            ${prog.extractDateStr?`<span style="font-size:10px;color:${overdue?'var(--danger)':'var(--text2)'};">📅 ${prog.extractDateStr}</span>`:''}
+          </div>`:''}
+        </div>`;
+      }
+    }
+    return `<div class="spec-item ${sc}${isRes?' is-r':''}" style="border-left-color:${bcol}">
+      <div style="flex:1;">
+        <div class="spec-name">${isRes?'📅 ':''} ${sp.name}</div>
+        <div class="spec-meta">${sp.owner||'—'} ／ ${sp.col+1}列${sp.row+1}行（${sp.spanCols||1}×${sp.spanRows||1}）／ ${isRes?sp.startDate+'〜':dayLbl(days)}</div>
+        ${extractInfo}
+      </div>
+      <button class="btn-del" onclick="removeSpecimen('${sp.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+function removeSpecimen(id){
+  const m=getMachine();if(!m)return;
+  m.specimens=(m.specimens||[]).filter(s=>s.id!==id);
+  save();renderAll();
+}
+
+// ══ 積算時間管理 ══
+
+// 現在の積算時間を計算（稼働中なら最終更新からの経過時間を加算）
+function getCurrentHours(m){
+  if(!m)return 0;
+  const base=m.currentHours||0;
+  if(!m.isRunning)return base;
+  const lastUp=m.lastUpdated?new Date(m.lastUpdated):null;
+  if(!lastUp)return base;
+  const elapsed=(Date.now()-lastUp.getTime())/(1000*3600);
+  return Math.round((base+elapsed)*10)/10;
+}
+
+// 時間を「○日○時間」形式に変換
+function formatHours(h){
+  if(h<=0)return '0時間';
+  const absH=Math.abs(h);
+  const days=Math.floor(absH/24);
+  const hours=Math.round((absH%24)*10)/10;
+  if(days===0)return `${hours}時間`;
+  if(hours===0)return `${days}日`;
+  return `${days}日${hours}時間`;
+}
+
+// 試験体の進捗情報を計算
+function calcProgressInfo(m, sp){
+  if(!m||!sp||sp.insertHours==null)return null;
+  const currentH=getCurrentHours(m);
+  // 経過時間 = 現在積算 - 入れた時積算
+  const elapsedH=Math.max(0, currentH - sp.insertHours);
+  const targetH=sp.testHours||null; // 目標試験時間
+  const extractH=sp.extractHours||null; // 取り出し積算時間
+
+  let result={
+    elapsedH: Math.round(elapsedH*10)/10,
+    elapsedStr: formatHours(elapsedH),
+    targetH,
+    remainingH: null,
+    remainingStr: null,
+    progressPct: null,
+    extractDateStr: null,
+    overdue: false,
+  };
+
+  if(targetH!=null){
+    const remainH=targetH-elapsedH;
+    result.remainingH=Math.round(remainH*10)/10;
+    result.remainingStr=remainH>0?formatHours(remainH):'0時間';
+    result.overdue=remainH<0;
+    result.progressPct=Math.min(100,Math.round(elapsedH/targetH*100));
+
+    // 取り出し予定実時刻を計算
+    if(remainH>0&&m.isRunning!==false){
+      const extractDate=new Date(Date.now()+remainH*3600*1000);
+      const mo=String(extractDate.getMonth()+1).padStart(2,'0');
+      const d=String(extractDate.getDate()).padStart(2,'0');
+      const hh=String(extractDate.getHours()).padStart(2,'0');
+      const mm=String(extractDate.getMinutes()).padStart(2,'0');
+      result.extractDateStr=`${mo}/${d} ${hh}:${mm}`;
+    } else if(remainH<=0){
+      result.extractDateStr='取り出し時刻超過';
+    } else {
+      result.extractDateStr='停止中（時刻未確定）';
+    }
+  }
+  return result;
+}
+
+// 取り出し予定日時を計算
+function calcExtractDateTime(m, extractHours){
+  if(!m||extractHours===null||extractHours===undefined)return null;
+  const current=getCurrentHours(m);
+  const remaining=extractHours-current; // 残り時間
+  if(remaining<=0)return {text:'取り出し時刻超過', overdue:true, remainingH:remaining};
+  // 残り時間から実時刻を計算
+  const extractDate=new Date(Date.now()+remaining*3600*1000);
+  const y=extractDate.getFullYear();
+  const mo=String(extractDate.getMonth()+1).padStart(2,'0');
+  const d=String(extractDate.getDate()).padStart(2,'0');
+  const h=String(extractDate.getHours()).padStart(2,'0');
+  const mi=String(extractDate.getMinutes()).padStart(2,'0');
+  return {
+    text:`${y}/${mo}/${d} ${h}:${mi} 頃`,
+    overdue:false,
+    remainingH:Math.round(remaining*10)/10,
+    date:extractDate
+  };
+}
+
+// フォームでの取り出し予定プレビュー更新
+function calcExtractTime(){
+  const insertH=parseFloat(document.getElementById('input-insert-hours').value);
+  const testH=parseFloat(document.getElementById('input-test-hours').value);
+  // 日数フィールドを時間に同期
+  if(!isNaN(testH)){
+    document.getElementById('input-test-days').value=Math.round(testH/24*10)/10;
+  }
+  updateExtractPreview(insertH, testH);
+}
+
+function calcExtractTimeFromDays(){
+  const days=parseFloat(document.getElementById('input-test-days').value);
+  if(!isNaN(days)){
+    const h=Math.round(days*24*10)/10;
+    document.getElementById('input-test-hours').value=h;
+    const insertH=parseFloat(document.getElementById('input-insert-hours').value);
+    updateExtractPreview(insertH, h);
+  }
+}
+
+function updateExtractPreview(insertH, testH){
+  const preview=document.getElementById('extract-preview');
+  if(isNaN(insertH)||isNaN(testH)){preview.style.display='none';return;}
+  const extractH=Math.round((insertH+testH)*10)/10;
+  document.getElementById('extract-hours-val').textContent=extractH;
+  preview.style.display='block';
+  // 現在選択中の試験機で実時刻を計算
+  const m=getMachine();
+  if(m){
+    const info=calcExtractDateTime(m,extractH);
+    if(info){
+      const el=document.getElementById('extract-time-val');
+      el.textContent=info.text;
+      el.style.color=info.overdue?'var(--danger)':'var(--ok)';
+    }
+  }else{
+    document.getElementById('extract-time-val').textContent='試験機を選択すると予定日時が表示されます';
+  }
+}
+
+// 試験機一覧に積算時間ボタンを追加してrenderMachineListを更新
+let editingMachineId=null;
+function openHoursPanel(id){
+  editingMachineId=id;
+  const m=machines.find(m=>m.id===id);if(!m)return;
+  document.getElementById('hours-panel').style.display='block';
+  document.getElementById('hours-machine-name').textContent=m.name+' ／ 現在積算：'+getCurrentHours(m).toFixed(1)+'h';
+  document.getElementById('hours-input').value=getCurrentHours(m).toFixed(1);
+  // 稼働状態ボタン更新
+  updateRunningButtons(m.isRunning!==false);
+  // スクロールして表示
+  document.getElementById('hours-panel').scrollIntoView({behavior:'smooth'});
+}
+function updateRunningButtons(running){
+  const br=document.getElementById('btn-running');
+  const bs=document.getElementById('btn-stopped');
+  if(running){
+    br.style.background='rgba(0,230,118,.25)';br.style.borderColor='var(--ok)';br.style.color='var(--ok)';
+    bs.style.background='transparent';bs.style.borderColor='var(--border)';bs.style.color='var(--text2)';
+  }else{
+    br.style.background='transparent';br.style.borderColor='var(--border)';br.style.color='var(--text2)';
+    bs.style.background='rgba(255,152,0,.15)';bs.style.borderColor='var(--warn)';bs.style.color='var(--warn)';
+  }
+}
+function setMachineRunning(running){
+  updateRunningButtons(running);
+  // 一時的に状態を保持（更新ボタンで確定）
+  if(editingMachineId){
+    const m=machines.find(m=>m.id===editingMachineId);
+    if(m)m._tempRunning=running;
+  }
+}
+function updateMachineHours(){
+  if(!editingMachineId)return;
+  const m=machines.find(m=>m.id===editingMachineId);if(!m)return;
+  const h=parseFloat(document.getElementById('hours-input').value);
+  if(isNaN(h)||h<0){alert('正しい時間を入力してください');return;}
+  m.currentHours=h;
+  m.lastUpdated=new Date().toISOString();
+  if(m._tempRunning!==undefined){m.isRunning=m._tempRunning;delete m._tempRunning;}
+  const updatedMachineId = editingMachineId;
+  document.getElementById('hours-panel').style.display='none';
+  document.getElementById('hours-machine-name').textContent='';
+  editingMachineId=null;
+  save();
+  // 全体を再描画（積算時間変更で取り出し日時が全て変わる）
+  renderAll();
+  renderMachineList();
+  if(currentMachineId)renderSpecList();
+  // 試験体一覧モーダルが開いていれば再描画
+  if(document.getElementById('specimens-modal').classList.contains('open')){
+    const m2=machines.find(m=>m.id===updatedMachineId);
+    if(m2){
+      const valid=countValid(m2);
+      const used=(m2.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+      document.getElementById('sm-subtitle').textContent=
+        `積算：${getCurrentHours(m2).toFixed(1)}h ／ 空き：${valid-used}/${valid}スロット ／ ${m2.isRunning!==false?'● 稼働中':'⏸ 停止中'}`;
+      renderSpecimensModal(m2);
+    }
+  }
+  // 槽ビューモーダルが開いていれば再描画
+  if(document.getElementById('chamber-modal').classList.contains('open')){
+    renderChamberModal();
+  }
+}
+
+// ══ 試験機管理 ══
+function renderMachineList(){
+  const el=document.getElementById('machine-list');if(!el)return;
+  if(!machines.length){el.innerHTML='<div style="font-size:11px;color:var(--text2);">試験機がありません</div>';return;}
+  el.innerHTML=machines.map(m=>{
+    const valid=countValid(m);const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+    const ch=getCurrentHours(m);
+    const running=m.isRunning!==false;
+    const statusDot=running?'<span style="color:var(--ok);">●</span>':'<span style="color:var(--warn);">●</span>';
+    return `<div class="machine-list-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;">
+        <div><div class="mli-name">${statusDot} ${m.name}</div><div class="mli-meta">${m.cols}列×${m.rows}行 ／ 空き${valid-used}/${valid}スロット</div></div>
+        <button class="mli-del" onclick="deleteMachine('${m.id}')">削除</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;width:100%;align-items:center;padding:6px 8px;background:var(--bg2);border-radius:5px;">
+        <div>
+          <div style="font-size:10px;color:var(--text2);">積算運転時間</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:var(--accent);">${ch.toFixed(1)} h</div>
+          <div style="font-size:9px;color:var(--text2);">${running?'稼働中':'停止中'}</div>
+        </div>
+        <button onclick="openHoursPanel('${m.id}')" style="padding:6px 12px;background:rgba(0,212,255,.1);border:1px solid var(--accent2);color:var(--accent);border-radius:5px;font-size:11px;cursor:pointer;">⏱ 更新</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function deleteMachine(id){
+  const m=machines.find(m=>m.id===id);if(!m)return;
+  if(!confirm(`「${m.name}」を削除しますか？\n登録されている試験体データもすべて削除されます。`))return;
+  machines=machines.filter(m=>m.id!==id);
+  if(currentMachineId===id)currentMachineId=machines.length?machines[0].id:null;
+  save();renderAll();renderMachineList();
+}
+function openAddMachine(){document.getElementById('machine-modal').classList.add('open');document.getElementById('m-name').value='';updateCalc();}
+function updateCalc(){
+  const cols=parseInt(document.getElementById('m-cols').value)||0;const rows=parseInt(document.getElementById('m-rows').value)||0;
+  const bcs=parseInt(document.getElementById('m-bcol-start').value)||0;const bce=parseInt(document.getElementById('m-bcol-end').value)||0;
+  const brs=parseInt(document.getElementById('m-brow-start').value)||0;const bre=parseInt(document.getElementById('m-brow-end').value)||0;
+  const total=cols*rows;const blocked=Math.max(0,bce-bcs+1)*Math.max(0,bre-brs+1);
+  document.getElementById('m-calc').textContent=`合計${total} ／ 噴霧塔不可${blocked} ／ 有効${total-blocked}スロット`;
+}
+function addMachine(){
+  const name=document.getElementById('m-name').value.trim();
+  const cols=parseInt(document.getElementById('m-cols').value);const rows=parseInt(document.getElementById('m-rows').value);
+  if(!name||!cols||!rows){alert('名称・列数・行数を入力してください');return;}
+  const m={id:Date.now().toString(),name,cols,rows,
+    bColStart:parseInt(document.getElementById('m-bcol-start').value)||6,
+    bColEnd:parseInt(document.getElementById('m-bcol-end').value)||9,
+    bRowStart:parseInt(document.getElementById('m-brow-start').value)||3,
+    bRowEnd:parseInt(document.getElementById('m-brow-end').value)||4,
+    // 積算時間管理
+    currentHours: 0,        // 現在の積算運転時間（手動更新）
+    isRunning: true,        // 稼働中かどうか
+    lastUpdated: new Date().toISOString(), // 最後に積算時間を更新した日時
+    specimens:[]};
+  machines.push(m);
+  document.getElementById('machine-modal').classList.remove('open');
+  currentMachineId=m.id;
+  save();renderAll();renderMachineList();
+}
+
+// ══ パスワード管理 ══
+async function changePw(){
+  const pw1 = document.getElementById('new-pw').value;
+  const pw2 = document.getElementById('new-pw2').value;
+  const msg = document.getElementById('pw-change-msg');
+  if(!pw1){ msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='パスワードを入力してください'; return; }
+  if(pw1.length < 6){ msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='6文字以上で設定してください'; return; }
+  if(pw1 !== pw2){ msg.style.display='block'; msg.style.color='var(--danger)'; msg.textContent='パスワードが一致しません'; return; }
+  const newHash = await hashPassword(pw1);
+  // ハッシュを表示（コピーしてHTMLを更新するため）
+  msg.style.display='block';
+  msg.style.color='var(--ok)';
+  msg.innerHTML = `✓ 新しいハッシュ値：<br><code style="font-size:9px;word-break:break-all;color:var(--accent);">${newHash}</code><br><br>「HTMLとして保存」ボタンでファイルを更新してください`;
+  // HTMLのPW_HASHを更新してダウンロード
+  document.getElementById('new-pw').value='';
+  document.getElementById('new-pw2').value='';
+  // 自動的にHTMLを更新してダウンロード
+  setTimeout(()=>downloadHTMLWithNewPw(newHash), 500);
+}
+
+function downloadHTMLWithNewPw(newHash){
+  let html = document.documentElement.outerHTML;
+  // PW_HASHを新しいハッシュに置き換え
+  html = html.replace(
+    /const PW_HASH = '[a-f0-9]+';/,
+    `const PW_HASH = '${newHash}';`
+  );
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.href = URL.createObjectURL(blob);
+  a.download = `salt_spray_${ts}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function logout(){
+  if(!confirm('ログアウトしますか？'))return;
+  sessionStorage.removeItem('sst_auth');
+  location.reload();
+}
+
+// ══ 槽ビュー全画面モーダル ══
+let chamberModalMachineId = null;
+let cmPending = null;
+
+function openChamberModal(machineId){
+  chamberModalMachineId = machineId;
+  cmPending = null;
+  const m = machines.find(m=>m.id===machineId);
+  if(!m) return;
+  document.getElementById('chamber-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  document.getElementById('cm-title').textContent = m.name + ' 試験槽ビュー';
+  document.getElementById('cm-start-place-btn').style.display='block';
+  document.getElementById('cm-place-form').style.display='none';
+  // 日付初期値
+  document.getElementById('cm-start').value = today();
+  const de=new Date();de.setDate(de.getDate()+48);
+  document.getElementById('cm-end').value=de.toISOString().split('T')[0];
+  renderChamberModal();
+}
+
+function closeChamberModal(){
+  document.getElementById('chamber-modal').classList.remove('open');
+  document.body.style.overflow='';
+  cmPending=null;
+  chamberModalMachineId=null;
+  highlightSpId=null;
+}
+
+// 特定の試験体をハイライトしながら槽ビューを開く
+let highlightSpId=null;
+function openChamberModalHighlight(machineId, spId){
+  highlightSpId=spId;
+  // 試験体一覧モーダルを閉じてから槽ビューを開く
+  document.getElementById('specimens-modal').classList.remove('open');
+  chamberModalMachineId=machineId;
+  cmPending=null;
+  const m=machines.find(m=>m.id===machineId);
+  if(!m)return;
+  document.getElementById('chamber-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  document.getElementById('cm-title').textContent=m.name+' 試験槽ビュー';
+  document.getElementById('cm-start-place-btn').style.display='block';
+  document.getElementById('cm-place-form').style.display='none';
+  // DOMが確定してからサイズ計算
+  requestAnimationFrame(()=>requestAnimationFrame(()=>renderChamberModal()));
+  // ハイライトスクロール
+  setTimeout(()=>{
+    const el=document.querySelector(`#cm-grid-outer .slot.highlight-sp`);
+    if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+  },200);
+}
+
+function renderChamberModal(){
+  const m=machines.find(m=>m.id===chamberModalMachineId);
+  if(!m)return;
+  const valid=countValid(m);
+  const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+  document.getElementById('cm-stats').textContent=`空き：${valid-used} / ${valid}スロット`;
+  const outer=document.getElementById('cm-grid-outer');
+  outer.innerHTML='';
+
+  // スロットサイズを画面いっぱいになるよう計算
+  const headerH=document.querySelector('#chamber-modal .fm-header').offsetHeight||56;
+  const btnH=document.getElementById('cm-start-place-btn').offsetHeight||50;
+  const formH=document.getElementById('cm-place-form').style.display==='none'?0:
+    document.getElementById('cm-place-form').offsetHeight||0;
+  const padding=32;
+  const labelH=20; // 列ラベル行
+  const availW=outer.offsetWidth||window.innerWidth-16;
+  const availH=(outer.offsetHeight||window.innerHeight-headerH-btnH-formH-padding)-labelH;
+
+  const szByW=Math.floor((availW-m.cols*3-24)/m.cols);
+  const szByH=Math.floor((availH-m.rows*3-24)/m.rows);
+  const sz=Math.max(32,Math.min(100,Math.min(szByW,szByH)));
+
+  // 列ラベル
+  const cl=document.createElement('div');
+  cl.style.cssText=`display:flex;gap:3px;margin-left:24px;margin-bottom:3px;`;
+  for(let c=0;c<m.cols;c++){
+    const l=document.createElement('div');
+    l.style.cssText=`width:${sz}px;text-align:center;font-size:${Math.max(8,sz/6)}px;color:var(--text2);opacity:.6;font-family:Rajdhani,sans-serif;flex-shrink:0;`;
+    l.textContent=c+1;cl.appendChild(l);
+  }
+  outer.appendChild(cl);
+
+  const gw=document.createElement('div');gw.style.cssText='display:flex;gap:3px;';
+
+  // 行ラベル
+  const rl=document.createElement('div');rl.style.cssText='display:flex;flex-direction:column;gap:3px;';
+  for(let r=0;r<m.rows;r++){
+    const l=document.createElement('div');
+    l.style.cssText=`width:21px;height:${sz}px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(8,sz/6)}px;color:var(--text2);opacity:.6;font-family:Rajdhani,sans-serif;flex-shrink:0;`;
+    l.textContent=r+1;rl.appendChild(l);
+  }
+  gw.appendChild(rl);
+
+  // グリッド
+  const gi=document.createElement('div');
+  gi.style.cssText=`display:grid;grid-template-columns:repeat(${m.cols},${sz}px);grid-template-rows:repeat(${m.rows},${sz}px);gap:3px;`;
+  const map=buildMap(m);
+
+  for(let r=0;r<m.rows;r++){
+    for(let c=0;c<m.cols;c++){
+      const el=document.createElement('div');
+      el.dataset.row=r;el.dataset.col=c;
+      el.style.cssText=`width:${sz}px;height:${sz}px;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;text-align:center;padding:3px;cursor:pointer;transition:all .12s;box-sizing:border-box;`;
+
+      if(isBlocked(m,r,c)){
+        // 配置不可
+        el.style.background='repeating-linear-gradient(45deg,#0d0f14 0,#0d0f14 4px,#111520 4px,#111520 8px)';
+        el.style.border='1px solid #141820';
+        el.style.cursor='not-allowed';
+      } else {
+        const sid=map[r][c];
+        if(!sid){
+          // 空きスロット
+          el.style.background='#060e1a';
+          el.style.border='1px solid #1a3355';
+          el.style.cursor='pointer';
+          if(cmPending){
+            el.style.cursor='crosshair';
+            el.style.background='#081220';
+            el.style.border='1px solid rgba(0,212,255,.4)';
+            el.addEventListener('mousedown',e=>cmOnMouseDown(e,r,c));
+            el.addEventListener('mouseenter',()=>cmOnMouseEnter(r,c));
+            el.addEventListener('touchstart',e=>{e.preventDefault();cmOnMouseDown(e,r,c);},{passive:false});
+          }
+          el.innerHTML=`<span style="position:absolute;top:1px;left:2px;font-size:${Math.max(6,sz/9)}px;color:rgba(100,140,180,.3);font-family:Rajdhani,sans-serif;">${c+1}-${r+1}</span>`;
+        } else {
+          // 試験体あり
+          const sp=(m.specimens||[]).find(s=>s.id===sid);
+          const isOrigin=sp.row===r&&sp.col===c;
+          if(sp.isReserve){
+            el.style.background='rgba(130,50,220,.45)';
+            el.style.border='2px dashed rgba(168,85,247,.8)';
+          } else {
+            const days=daysLeft(sp.endDate);
+            const sc=statusCls(days);
+            const[bg,bc]=activeColor(days,sp.owner);
+            if(sc==='warn'){el.style.border='2px solid var(--warn)';}
+            else if(sc==='danger'){el.style.border='2px solid var(--danger)';}
+            else{el.style.border=`2px solid ${bc}`;}
+            el.style.background=bg;
+            // ハイライト
+            if(highlightSpId&&sp.id===highlightSpId){
+              el.style.border='3px solid #fff';
+              el.style.boxShadow=`0 0 8px ${bc}`;
+            } else if(highlightSpId&&sp.id!==highlightSpId){
+              el.style.opacity='0.4';
+            }
+          }
+          // ラベル表示（左上セルのみ）
+          if(isOrigin){
+            const fs=Math.max(7,sz/7);
+            const days=sp.isReserve?null:daysLeft(sp.endDate);
+            const dayStr=sp.isReserve?'予約':(days==null||days>999?'':(days<0?'超過':days===0?'今日':days+'d'));
+            el.innerHTML=`
+              <span style="position:absolute;top:1px;left:2px;font-size:${Math.max(6,sz/10)}px;color:rgba(255,255,255,.4);font-family:Rajdhani,sans-serif;">${c+1}-${r+1}</span>
+              <div style="font-size:${fs}px;font-weight:700;line-height:1.2;color:#fff;word-break:break-all;width:100%;text-align:center;">${sp.name}</div>
+              ${sp.owner?`<div style="font-size:${Math.max(6,sz/8)}px;color:rgba(255,255,255,.7);margin-top:1px;">${sp.owner}</div>`:''}
+              ${dayStr?`<div style="font-size:${Math.max(7,sz/7)}px;font-family:Rajdhani,sans-serif;font-weight:700;color:rgba(255,255,255,.9);margin-top:1px;">${dayStr}</div>`:''}`;
+          }
+          el.addEventListener('mouseenter',e=>showTooltip(e,sp));
+          el.addEventListener('mousemove',moveTooltip);
+          el.addEventListener('mouseleave',hideTooltip);
+        }
+      }
+      gi.appendChild(el);
+    }
+  }
+  gw.appendChild(gi);outer.appendChild(gw);
+}
+
+
+// 配置モード
+function startChamberPlace(){
+  document.getElementById('cm-place-form').style.display='block';
+  document.getElementById('cm-start-place-btn').style.display='none';
+  cmDragReset();
+}
+
+function cancelChamberPlace(){
+  cmPending=null;
+  document.getElementById('cm-place-form').style.display='none';
+  document.getElementById('cm-start-place-btn').style.display='block';
+  renderChamberModal();
+}
+
+function cmCalcExtract(){
+  const ih=parseFloat(document.getElementById('cm-insert-h').value);
+  const th=parseFloat(document.getElementById('cm-test-h').value);
+  if(!isNaN(th)) document.getElementById('cm-test-d').value=Math.round(th/24*10)/10;
+  cmUpdatePreview(ih,th);
+}
+function cmCalcExtractD(){
+  const d=parseFloat(document.getElementById('cm-test-d').value);
+  if(!isNaN(d)){
+    const h=Math.round(d*24*10)/10;
+    document.getElementById('cm-test-h').value=h;
+    const ih=parseFloat(document.getElementById('cm-insert-h').value);
+    cmUpdatePreview(ih,h);
+  }
+}
+function cmUpdatePreview(ih,th){
+  const prev=document.getElementById('cm-extract-preview');
+  if(isNaN(ih)||isNaN(th)){prev.style.display='none';return;}
+  const exH=Math.round((ih+th)*10)/10;
+  document.getElementById('cm-extract-h').textContent=exH;
+  prev.style.display='block';
+  const m=machines.find(m=>m.id===chamberModalMachineId);
+  if(m){
+    const info=calcExtractDateTime(m,exH);
+    const dtEl=document.getElementById('cm-extract-dt');
+    if(info){dtEl.textContent=info.text;dtEl.style.color=info.overdue?'var(--danger)':'var(--ok)';}
+  }
+}
+
+// ドラッグ（モーダル内）
+let cmDragSR=-1,cmDragSC=-1,cmDragER=-1,cmDragEC=-1,cmDragging=false;
+function cmDragReset(){cmDragSR=cmDragSC=cmDragER=cmDragEC=-1;cmDragging=false;}
+function cmOnMouseDown(e,r,c){
+  if(!cmPending)return;e.preventDefault();
+  cmDragging=true;cmDragSR=cmDragER=r;cmDragSC=cmDragEC=c;
+  cmUpdateDragHL();
+}
+function cmOnMouseEnter(r,c){
+  if(!cmDragging||!cmPending)return;
+  cmDragER=r;cmDragEC=c;cmUpdateDragHL();
+}
+function cmUpdateDragHL(){
+  const m=machines.find(m=>m.id===chamberModalMachineId);if(!m)return;
+  const map=buildMap(m);
+  const r1=Math.min(cmDragSR,cmDragER),r2=Math.max(cmDragSR,cmDragER);
+  const c1=Math.min(cmDragSC,cmDragEC),c2=Math.max(cmDragSC,cmDragEC);
+  document.querySelectorAll('#cm-grid-outer .slot.drag-hover,.slot.drag-invalid').forEach(el=>{el.classList.remove('drag-hover','drag-invalid');});
+  for(let r=r1;r<=r2;r++)for(let c=c1;c<=c2;c++){
+    const el=document.querySelector(`#cm-grid-outer .slot[data-row="${r}"][data-col="${c}"]`);if(!el)continue;
+    if(isBlocked(m,r,c)||map[r][c]!==null)el.classList.add('drag-invalid');
+    else el.classList.add('drag-hover');
+  }
+}
+document.addEventListener('mouseup',()=>{
+  if(cmDragging&&cmPending){
+    cmDragging=false;
+    const r1=Math.min(cmDragSR,cmDragER),r2=Math.max(cmDragSR,cmDragER);
+    const c1=Math.min(cmDragSC,cmDragEC),c2=Math.max(cmDragSC,cmDragEC);
+    cmPlaceSpecimen(r1,c1,r2-r1+1,c2-c1+1);
+  }
+  if(isDragging)onSlotMouseUp();
+});
+
+function cmActivatePlacing(){
+  const name=document.getElementById('cm-name').value.trim();
+  const owner=document.getElementById('cm-owner').value.trim();
+  const startDate=document.getElementById('cm-start').value;
+  const endDate=document.getElementById('cm-end').value;
+  if(!name||!startDate){alert('試験体名と開始日を入力してください');return;}
+  const ih=parseFloat(document.getElementById('cm-insert-h').value)||null;
+  const th=parseFloat(document.getElementById('cm-test-h').value)||null;
+  const exH=ih!=null&&th!=null?Math.round((ih+th)*10)/10:null;
+  cmPending={name,owner,startDate,endDate:endDate||null,isReserve:false,insertHours:ih,testHours:th,extractHours:exH};
+  renderChamberModal();
+  alert('スロットをドラッグして配置範囲を選択してください');
+}
+
+function cmPlaceSpecimen(row,col,spanR,spanC){
+  if(!cmPending)return;
+  const m=machines.find(m=>m.id===chamberModalMachineId);if(!m)return;
+  const map=buildMap(m);
+  if(!canPlace(m,map,row,col,spanR,spanC)){alert(`${spanC}列×${spanR}行分の空きがありません`);return;}
+  m.specimens=m.specimens||[];
+  m.specimens.push({...cmPending,id:Date.now().toString(),row,col,spanRows:spanR,spanCols:spanC});
+  cmPending=null;
+  document.getElementById('cm-place-form').style.display='none';
+  document.getElementById('cm-start-place-btn').style.display='block';
+  save();renderAll();renderChamberModal();
+  // ドロワー側も更新
+  if(currentMachineId===chamberModalMachineId)renderSpecList();
+}
+
+// ══ 試験体一覧全画面モーダル ══
+function openSpecimensModal(machineId){
+  const m=machines.find(m=>m.id===machineId);if(!m)return;
+  document.getElementById('specimens-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  document.getElementById('sm-title').textContent=m.name+' 試験体一覧';
+  const valid=countValid(m);
+  const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+  document.getElementById('sm-subtitle').textContent=`積算：${getCurrentHours(m).toFixed(1)}h ／ 空き：${valid-used}/${valid}スロット ／ ${m.isRunning!==false?'● 稼働中':'⏸ 停止中'}`;
+  renderSpecimensModal(m);
+}
+
+function closeSpecimensModal(){
+  document.getElementById('specimens-modal').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function renderSpecimensModal(m){
+  const body=document.getElementById('sm-body');
+  if(!(m.specimens||[]).length){
+    body.innerHTML='<div style="text-align:center;padding:40px;color:var(--text2);">試験体がありません</div>';return;
+  }
+  // 試験中と予約を分けて表示
+  const active=(m.specimens||[]).filter(s=>!s.isReserve);
+  const reserved=(m.specimens||[]).filter(s=>s.isReserve);
+  let html='';
+  if(active.length){
+    html+=`<div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:10px;">試験中（${active.length}件）</div>`;
+    html+=active.map(sp=>{
+      const days=daysLeft(sp.endDate);
+      const sc=statusCls(days);
+      const[bg,bc]=activeColor(days,sp.owner);
+      const prog=calcProgressInfo(m,sp);
+      const pct=prog&&prog.progressPct!=null?prog.progressPct:null;
+      const barColor=sc==='danger'?'var(--danger)':sc==='warn'?'var(--warn)':'var(--accent2)';
+      return `<div class="sp-detail-card" style="border-left:4px solid ${bc};cursor:pointer;transition:all .15s;" onclick="openChamberModalHighlight('${m.id}','${sp.id}')" onmouseover="this.style.borderColor='${bc}';this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div style="font-family:Rajdhani,sans-serif;font-size:20px;font-weight:700;color:${bc};">${sp.name}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">👤 ${sp.owner||'担当者未設定'} ／ ${sp.col+1}列・${sp.row+1}行（${sp.spanCols||1}×${sp.spanRows||1}）</div>
+            <div style="font-size:10px;color:var(--accent);margin-top:3px;">🔲 タップで槽ビューを表示</div>
+          </div>
+          <button onclick="event.stopPropagation();removeSpecimenFromModal('${m.id}','${sp.id}')" class="btn-del" style="font-size:18px;">✕</button>
+        </div>
+        ${pct!=null?`
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px;">
+          <span>経過：<b style="color:var(--accent)">${prog.elapsedStr}</b></span>
+          <span>${prog.targetH!=null?`目標：${prog.targetH}h`:''}</span>
+          <span style="color:${barColor}">${pct}%</span>
+        </div>
+        <div class="sp-progress-bar-wrap">
+          <div class="sp-progress-bar" style="width:${pct}%;background:${barColor};"></div>
+        </div>`:''}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <div>
+            ${prog&&prog.remainingH!=null?`<div style="font-size:14px;font-family:Rajdhani,sans-serif;font-weight:700;color:${sc==='danger'?'var(--danger)':sc==='warn'?'var(--warn)':'var(--ok)'};">${prog.overdue?'⚠ '+formatHours(Math.abs(prog.remainingH))+'超過':'残り '+prog.remainingStr}</div>`
+            :(sp.endDate?`<div style="font-size:13px;color:${sc==='danger'?'var(--danger)':sc==='warn'?'var(--warn)':'var(--ok)'};">${dayLbl(days)}</div>`:'<div style="font-size:12px;color:var(--text2);">積算時間未設定</div>')}
+          </div>
+          ${prog&&prog.extractDateStr?`<div style="text-align:right;"><div style="font-size:10px;color:var(--text2);">取り出し予定</div><div style="font-size:13px;font-weight:500;color:${prog.overdue?'var(--danger)':'var(--text)'};">${prog.extractDateStr}</div></div>`:''}
+        </div>
+        ${sp.startDate?`<div style="font-size:10px;color:var(--text2);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">開始：${sp.startDate}${sp.endDate?' ／ 終了予定：'+sp.endDate:''}${sp.insertHours!=null?' ／ 入れた時：'+sp.insertHours+'h':''}</div>`:''}
+      </div>`;
+    }).join('');
+  }
+  if(reserved.length){
+    html+=`<div style="font-size:11px;color:var(--reserve);letter-spacing:1px;margin:16px 0 10px;">予約（${reserved.length}件）</div>`;
+    html+=reserved.map(sp=>`<div class="sp-detail-card" style="border-left:4px dashed var(--reserve);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--reserve);">📅 ${sp.name}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px;">👤 ${sp.owner||'—'} ／ ${sp.col+1}列・${sp.row+1}行 ／ ${sp.startDate}〜${sp.endDate||''}</div>
+        </div>
+        <button onclick="removeSpecimenFromModal('${m.id}','${sp.id}')" class="btn-del" style="font-size:18px;">✕</button>
+      </div>
+    </div>`).join('');
+  }
+  body.innerHTML=html;
+}
+
+function removeSpecimenFromModal(machineId, spId){
+  const m=machines.find(m=>m.id===machineId);if(!m)return;
+  if(!confirm('この試験体を削除しますか？'))return;
+  m.specimens=(m.specimens||[]).filter(s=>s.id!==spId);
+  save();renderAll();
+  // モーダルを再描画
+  const sm=document.getElementById('sm-subtitle');
+  const valid=countValid(m);
+  const used=(m.specimens||[]).reduce((a,sp)=>a+(sp.spanCols||1)*(sp.spanRows||1),0);
+  sm.textContent=`積算：${getCurrentHours(m).toFixed(1)}h ／ 空き：${valid-used}/${valid}スロット`;
+  renderSpecimensModal(m);
+}
+
+// ══ バックアップ ══
+function downloadBackup(){
+  const data={version:2,timestamp:new Date().toISOString(),machines,nextColor};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  const ts=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  a.href=URL.createObjectURL(blob);a.download=`salt_spray_backup_${ts}.json`;a.click();
+  URL.revokeObjectURL(a.href);
+  const msg=document.getElementById('backup-msg');msg.textContent='✓ ダウンロードしました！';msg.style.display='block';
+  setTimeout(()=>msg.style.display='none',3000);
+}
+function restoreBackup(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(!d.machines)throw new Error('無効なファイル');
+      if(!confirm(`バックアップ（${d.timestamp||'不明'}）から復元しますか？\n現在のデータは上書きされます。`))return;
+      machines=d.machines;nextColor=d.nextColor||0;
+      save();renderAll();renderMachineList();
+      const msg=document.getElementById('backup-msg');msg.textContent='✓ 復元しました！';msg.style.display='block';
+      setTimeout(()=>msg.style.display='none',3000);
+    }catch(err){alert('ファイルの読み込みに失敗しました：'+err.message);}
+  };reader.readAsText(file);input.value='';
+}
+
+// ══ ツールチップ ══
+function showTooltip(e,sp){
+  const days=daysLeft(sp.endDate);
+  document.getElementById('tt-name').textContent=sp.name;
+  document.getElementById('tt-owner').textContent=`担当：${sp.owner||'—'}`;
+  document.getElementById('tt-pos').textContent=`位置：${sp.col+1}列・${sp.row+1}行（${sp.spanCols||1}×${sp.spanRows||1}）`;
+  document.getElementById('tt-start').textContent=`開始：${sp.startDate}`;
+  document.getElementById('tt-end').textContent=`終了予定：${sp.endDate}`;
+  document.getElementById('tt-remain').textContent=dayLbl(days);
+  document.getElementById('tooltip').style.display='block';
+  moveTooltip(e);
+}
+function moveTooltip(e){const t=document.getElementById('tooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY+14)+'px';}
+function hideTooltip(){document.getElementById('tooltip').style.display='none';}
+
+// ══ 起動 ══
+document.getElementById('input-start').value=today();
+document.getElementById('res-start').value=today();
+const de=new Date();de.setDate(de.getDate()+48);
+const def=de.toISOString().split('T')[0];
+// input-endは存在する場合のみ設定
+const inputEnd=document.getElementById('input-end');
+if(inputEnd)inputEnd.value=def;
+const resEnd=document.getElementById('res-end');
+if(resEnd)resEnd.value=def;
+updateCalc();
+
+load();renderAll();
+
+// 認証チェック
+checkAuth();
+
+// Supabaseに直接fetch接続（SDKなし）
+loadFromSupabase().then(()=>startPolling());
+// リサイズ時にグリッドを再描画
+window.addEventListener('resize',()=>{
+  if(document.getElementById('chamber-modal').classList.contains('open')){
+    renderChamberModal();
+  }
+});
+
+// 1分ごとに積算時間・残り時間を更新
+setInterval(()=>{
+  const hasMachinesRunning=machines.some(m=>m.isRunning!==false);
+  if(hasMachinesRunning){
+    renderBoard();
+    if(document.getElementById('drawer').classList.contains('open')){
+      renderMachineList();
+      renderSpecList();
+      renderChamberArea();
+    }
+  }
+},60000);
+</script>
+</body>
+</html>
